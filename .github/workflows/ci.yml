@@ -1,0 +1,22 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm test
+      - name: Server starts and answers health check
+        run: |
+          node server.mjs &
+          for i in $(seq 1 20); do curl -fs http://localhost:3033/healthz && exit 0; sleep 1; done
+          exit 1

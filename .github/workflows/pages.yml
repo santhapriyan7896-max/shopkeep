@@ -1,0 +1,38 @@
+# Publishes the website + offline demo + dashboard to GitHub Pages (static, no server,
+# so Live AI and the India Post lookup are off there – use Render for those).
+# One-time setup: repo Settings → Pages → Source: "GitHub Actions". Then run this
+# workflow from the Actions tab (it doesn't run automatically).
+name: Deploy static site to GitHub Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect the static files
+        run: |
+          mkdir _site
+          cp *.html *.css *.svg catalog.js validate.js store.js bot.js scenarios.js app.js dashboard.js pitch.js _site/
+          mkdir -p _site/video && cp video/activewear33-pitch-eric.mp4 _site/video/
+          [ -d images ] && cp -r images _site/ || true
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
