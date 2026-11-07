@@ -172,7 +172,7 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
       emit(s.shop.id, "settings");
       return back("ig=connected");
     } catch (err) {
-      log.error("Instagram connect failed:", err.message);
+      log.error("Instagram connect failed:", err.message, err.details ? `| ${err.details.join(" | ")}` : "");
       return back("ig=error&reason=" + encodeURIComponent(err.message.slice(0, 200)));
     }
   }

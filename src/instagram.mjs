@@ -67,8 +67,7 @@ export function makeInstagram({ mode = "unified", appId, appSecret, configId, re
     if (unified) {
       const t = await call(`${graph}/oauth/access_token?${q({ client_id: appId, client_secret: appSecret, redirect_uri: redirectUri, code })}`);
       if (!t.access_token) throw new Error("Instagram: no access token in the response");
-      const { data = [] } = await call(`${graph}/me/assigned_instagram_accounts?${q({ fields: "id,username", access_token: t.access_token })}`);
-      if (!data.length) throw new Error("No Instagram account was shared. Connect again and tick your Instagram account.");
+      const data = await findAccounts(t.access_token);
       const acct = data[0];
       // Ask Meta to send this account's DMs to our webhook.
       await call(`${graph}/${acct.id}/subscribed_apps?${q({ subscribed_fields: "messages", access_token: t.access_token })}`, { method: "POST" });
@@ -94,6 +93,53 @@ export function makeInstagram({ mode = "unified", appId, appSecret, configId, re
       username: me.username || "",
       otherAccounts: [],
     };
+  }
+
+  // Which Instagram account(s) the shop shared during Unified login. Meta's documented
+  // call (/me/assigned_instagram_accounts) can come back empty, so two fallbacks:
+  // the token's granted permissions (debug_token lists the account ids per permission),
+  // then Instagram accounts linked to Facebook Pages. `notes` (no secrets) explain a failure.
+  async function findAccounts(token) {
+    const found = new Map(); // id → username
+    const notes = [];
+    const attempt = async (label, fn) => {
+      if (found.size) return;
+      try {
+        await fn();
+      } catch (err) {
+        notes.push(`${label}: ${err.message}`);
+      }
+    };
+    await attempt("assigned_instagram_accounts", async () => {
+      const { data = [] } = await call(`${graph}/me/assigned_instagram_accounts?${q({ fields: "id,username", access_token: token })}`);
+      notes.push(`assigned_instagram_accounts: ${data.length}`);
+      for (const a of data) found.set(String(a.id), a.username || "");
+    });
+    await attempt("debug_token", async () => {
+      const d = await call(`${graph}/debug_token?${q({ input_token: token, access_token: `${appId}|${appSecret}` })}`);
+      const scopes = (d.data && d.data.granular_scopes) || [];
+      notes.push(`granted: ${scopes.map((s) => `${s.scope}(${(s.target_ids || []).length})`).join(", ") || "none"}`);
+      const order = ["instagram_basic", "instagram_manage_messages"];
+      for (const name of order) for (const s of scopes) if (s.scope === name) for (const id of s.target_ids || []) if (!found.has(String(id))) found.set(String(id), "");
+    });
+    await attempt("me/accounts", async () => {
+      const { data = [] } = await call(`${graph}/me/accounts?${q({ fields: "instagram_business_account{id,username}", access_token: token })}`);
+      notes.push(`pages: ${data.length}`);
+      for (const p of data) if (p.instagram_business_account) found.set(String(p.instagram_business_account.id), p.instagram_business_account.username || "");
+    });
+    for (const [id, username] of found)
+      if (!username)
+        try {
+          found.set(id, (await call(`${graph}/${id}?${q({ fields: "username", access_token: token })}`)).username || "");
+        } catch (err) {
+          notes.push(`username for ${id}: ${err.message}`);
+        }
+    if (!found.size) {
+      const e = new Error("Meta didn't share an Instagram account with Shopkeep. Connect again and make sure your Instagram account is selected.");
+      e.details = notes;
+      throw e;
+    }
+    return [...found].map(([id, username]) => ({ id, username }));
   }
 
   // Instagram-login tokens last 60 days and are refreshed. Unified tokens don't expire

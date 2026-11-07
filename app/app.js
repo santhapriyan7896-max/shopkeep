@@ -538,7 +538,8 @@ async function settings() {
   const st = s.settings;
   const q = new URLSearchParams(location.hash.split("?")[1] || "");
   if (q.get("ig") === "connected") toast("Instagram connected");
-  if (q.get("ig") === "error") toast("Instagram: " + (q.get("reason") || "couldn't connect"), true);
+  const igError = q.get("ig") === "error" ? q.get("reason") || "Couldn't connect" : null;
+  if (q.get("ig") === "cancelled") toast("Instagram connection cancelled");
   if (q.get("ig")) history.replaceState(null, "", "#settings");
   const f = (name, label, opts = {}) => {
     const v = st[name] ?? "";
@@ -560,13 +561,13 @@ async function settings() {
         ${s.instagram.connected
           ? `<div class="row" style="margin-top:10px"><span class="pill on">Connected</span><b class="grow">@${esc(s.instagram.username)}</b><button class="btn danger sm" id="ig-off">Disconnect</button></div>
              <p class="muted small">Connection renews automatically${s.instagram.expires_at ? ` (current one valid until ${new Date(s.instagram.expires_at).toLocaleDateString("en-IN")})` : ""}.</p>`
-          : state.me.instagram_available
+          : (igError ? `<p class="banner" style="margin:10px 0;border-radius:9px">Couldn't connect: ${esc(igError)}</p>` : "") + (state.me.instagram_available
             ? `<p class="muted small">Needs an Instagram professional account (Business or Creator). ${state.me.instagram_mode === "unified"
                 ? "You'll sign in with Facebook or Instagram, pick your business and your Instagram account, and allow Shopkeep to manage messages."
                 : "You'll sign in on Instagram and allow Shopkeep to read and reply to messages."}
                Also turn on <b>Allow access to messages</b> in the Instagram app (Settings → Messages and story replies → Message controls → Connected tools).</p>
                <button class="btn primary" id="ig-on">Connect Instagram</button>`
-            : `<p class="muted small">Instagram isn't set up on this server yet. The server owner needs to add META_APP_ID, META_APP_SECRET and META_CONFIG_ID (see SETUP-INSTAGRAM.md).</p>`}
+            : `<p class="muted small">Instagram isn't set up on this server yet. The server owner needs to add META_APP_ID, META_APP_SECRET and META_CONFIG_ID (see SETUP-INSTAGRAM.md).</p>`)}
       </section>
 
       <form class="card pad" id="shopform">

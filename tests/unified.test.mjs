@@ -14,6 +14,7 @@ const IG_ID = "17841400000000077";
 const CUSTOMER = "5551234";
 const calls = [];
 let rejectButtons = false;
+let assignedEmpty = false; // Meta's documented account lookup returning nothing
 
 async function fakeFetch(url, opts = {}) {
   const u = new URL(url);
@@ -22,7 +23,11 @@ async function fakeFetch(url, opts = {}) {
   const json = (b, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
   if (u.host !== "graph.facebook.com") return json({ error: { message: "wrong host " + u.host } }, 400);
   if (u.pathname === "/v27.0/oauth/access_token") return json({ access_token: "suat-token", token_type: "bearer" });
-  if (u.pathname === "/v27.0/me/assigned_instagram_accounts") return json({ data: [{ id: IG_ID, username: "activewear.33" }, { id: "999", username: "other.shop" }] });
+  if (u.pathname === "/v27.0/me/assigned_instagram_accounts")
+    return json({ data: assignedEmpty ? [] : [{ id: IG_ID, username: "activewear.33" }, { id: "999", username: "other.shop" }] });
+  if (u.pathname === "/v27.0/debug_token")
+    return json({ data: { is_valid: true, granular_scopes: [{ scope: "instagram_manage_messages", target_ids: [IG_ID] }, { scope: "instagram_basic", target_ids: [IG_ID] }, { scope: "ads_read", target_ids: ["act_1"] }] } });
+  if (u.pathname === `/v27.0/${IG_ID}`) return json({ id: IG_ID, username: "activewear.33" });
   if (u.pathname === `/v27.0/${IG_ID}/subscribed_apps`) return json({ success: true });
   if (u.pathname === `/v27.0/${IG_ID}/messages`) {
     if (rejectButtons && body.message.attachment) return json({ error: { message: "Unsupported template" } }, 400);
@@ -164,4 +169,18 @@ test("button refused → same message re-sent as text with the link", async () =
   assert.equal(tried.length, 2);
   assert.ok(tried[0].body.message.attachment, "tried the button first");
   assert.equal(tried[1].body.message.text, "Order AW-1 · ₹650\n\nPay ₹650: https://rzp.io/i/abc");
+});
+
+test("if Meta's account list comes back empty, the token's granted permissions find the account", async () => {
+  await api("POST", "/api/v1/instagram/disconnect", {});
+  assignedEmpty = true;
+  const state = new URL((await api("POST", "/api/v1/instagram/connect", {})).data.url).searchParams.get("state");
+  const cb = await api("GET", `/auth/instagram/callback?code=CODE2&state=${encodeURIComponent(state)}`);
+  assert.equal(cb.headers.get("location"), "/app/#settings?ig=connected");
+  const dbg = calls.findLast((c) => c.path === "/v27.0/debug_token");
+  assert.equal(dbg.query.access_token, `meta-123|${APP_SECRET_META}`, "uses the app token to read the grant");
+  const me = (await api("GET", "/api/v1/me")).data.shop;
+  assert.equal(me.instagram.connected, true);
+  assert.equal(me.instagram.username, "activewear.33");
+  assignedEmpty = false;
 });
