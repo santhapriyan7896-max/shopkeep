@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.*
+.git
+.github
+video/.build
+video/raw-recording.*
+video/activewear33-pitch-silent.mp4
+video/activewear33-pitch-music-only.mp4
+tests
+record-video.mjs
+make-audio.mjs
+voice-sample.mjs
+*.log

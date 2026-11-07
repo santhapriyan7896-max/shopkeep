@@ -1,0 +1,22 @@
+{
+  "name": "shopkeep",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shopkeep – the sales assistant for shops that sell in DMs (Instagram DMs, UPI orders, WhatsApp reports). Made by Team Coge.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test tests/bot.test.mjs",
+    "transcript": "node tests/transcript.mjs",
+    "film": "node record-video.mjs && node make-audio.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.16.0"
+  }
+}

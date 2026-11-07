@@ -1,0 +1,6 @@
+# Store text with LF line endings (works on Linux hosts, Docker and CI)
+* text=auto eol=lf
+*.mp4 binary
+*.png binary
+*.jpg binary
+*.svg text eol=lf

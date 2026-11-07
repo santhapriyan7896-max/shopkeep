@@ -1,0 +1,21 @@
+# dependencies
+node_modules/
+
+# secrets – API keys live here, never commit it
+.env
+.env.*
+!.env.example
+
+# video build files (regenerate with: npm run film)
+video/.build/
+video/raw-recording.*
+video/activewear33-pitch-silent.mp4
+video/activewear33-pitch-music-only.mp4
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.log

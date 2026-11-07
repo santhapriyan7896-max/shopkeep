@@ -1,0 +1,17 @@
+# Render blueprint – one free web service running server.mjs (website, demo, dashboard, Live AI).
+# In Render: New → Blueprint → pick this repo. Then add GEMINI_API_KEY under Environment.
+services:
+  - type: web
+    name: shopkeep
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.mjs
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: GEMINI_API_KEY
+        sync: false # paste your key in the Render dashboard; never in this file
+      - key: CHAT_LIMIT_PER_MIN
+        value: "15"

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orders · Activewear33</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo"><b>AW</b><small>33</small></span><div><b>Activewear33</b><span>Shopkeep dashboard</span></div></div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="orders" class="on">Orders <em id="cOrders">0</em></button>
+      <button data-tab="leads">Team enquiries <em id="cLeads">0</em></button>
+      <button data-tab="messages">Messages <em id="cMsgs">0</em></button>
+    </nav>
+    <div class="sync"><i></i><span id="syncText">Live</span></div>
+  </header>
+
+  <main class="wrap">
+    <section id="tab-orders">
+      <div class="summary" id="summary"></div>
+      <div class="filters" id="filters"></div>
+      <div class="card">
+        <table class="orders">
+          <thead><tr><th>Order</th><th>Customer</th><th>Item</th><th class="num">Amount</th><th>Payment</th><th>Address check</th><th>Status</th><th></th></tr></thead>
+          <tbody id="orderRows"></tbody>
+        </table>
+        <div class="empty" id="ordersEmpty">No orders yet. Orders placed in Instagram DMs show up here instantly.</div>
+      </div>
+    </section>
+
+    <section id="tab-leads" hidden>
+      <div class="card"><div id="leadList"></div></div>
+    </section>
+
+    <section id="tab-messages" hidden>
+      <div class="card"><div id="msgList"></div></div>
+    </section>
+
+    <p class="foot">Demo data stays in this browser. <button id="clearBtn">Clear all</button></p>
+  </main>
+  <div class="toast" id="toast"></div>
+
+  <script src="catalog.js"></script>
+  <script src="validate.js"></script>
+  <script src="store.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

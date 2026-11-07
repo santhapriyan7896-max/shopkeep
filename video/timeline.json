@@ -1,0 +1,365 @@
+{
+  "duration": 129.41299999999998,
+  "marks": [
+    {
+      "t": 0.242,
+      "key": "intro",
+      "label": "11:47 PM, someone wants to buy"
+    },
+    {
+      "t": 4.598,
+      "key": "story",
+      "label": "Their own story: no replies at midnight"
+    },
+    {
+      "t": 10.756,
+      "key": "posts",
+      "label": "70 posts, no prices"
+    },
+    {
+      "t": 16.692,
+      "key": "lost",
+      "label": "By 9 AM they've bought elsewhere"
+    },
+    {
+      "t": 21.801,
+      "key": "whatif",
+      "label": "Meet Shopkeep"
+    },
+    {
+      "t": 27.544,
+      "key": "demo",
+      "label": "Shared reel, Price??, Tanglish reply, UPI payment"
+    },
+    {
+      "t": 28.048,
+      "key": "step:reel:0",
+      "label": "step:reel:0"
+    },
+    {
+      "t": 33.457,
+      "key": "step:reel:1",
+      "label": "step:reel:1"
+    },
+    {
+      "t": 37.418,
+      "key": "step:reel:2",
+      "label": "step:reel:2"
+    },
+    {
+      "t": 40.469,
+      "key": "step:reel:3",
+      "label": "step:reel:3"
+    },
+    {
+      "t": 43.886,
+      "key": "step:reel:4",
+      "label": "step:reel:4"
+    },
+    {
+      "t": 47.825,
+      "key": "step:reel:5",
+      "label": "step:reel:5"
+    },
+    {
+      "t": 51.368,
+      "key": "step:reel:6",
+      "label": "step:reel:6"
+    },
+    {
+      "t": 55.57,
+      "key": "step:reel:7",
+      "label": "step:reel:7"
+    },
+    {
+      "t": 59.351,
+      "key": "step:reel:8",
+      "label": "step:reel:8"
+    },
+    {
+      "t": 70.854,
+      "key": "team",
+      "label": "Team kit enquiry becomes a lead"
+    },
+    {
+      "t": 71.361,
+      "key": "step:team:0",
+      "label": "step:team:0"
+    },
+    {
+      "t": 76.7,
+      "key": "step:team:1",
+      "label": "step:team:1"
+    },
+    {
+      "t": 80.221,
+      "key": "step:team:2",
+      "label": "step:team:2"
+    },
+    {
+      "t": 83.826,
+      "key": "step:team:3",
+      "label": "step:team:3"
+    },
+    {
+      "t": 90.114,
+      "key": "morning",
+      "label": "9 AM WhatsApp summary"
+    },
+    {
+      "t": 94.959,
+      "key": "dashboard",
+      "label": "COD order checked and confirmed"
+    },
+    {
+      "t": 110.347,
+      "key": "close",
+      "label": "What it does"
+    },
+    {
+      "t": 116.181,
+      "key": "product",
+      "label": "What it is"
+    },
+    {
+      "t": 121.933,
+      "key": "brand",
+      "label": "Made by Team Coge"
+    },
+    {
+      "t": 128.813,
+      "key": "end",
+      "label": "End"
+    }
+  ],
+  "cues": [
+    {
+      "t": 0.243,
+      "kind": "swell"
+    },
+    {
+      "t": 4.599,
+      "kind": "whoosh"
+    },
+    {
+      "t": 10.756,
+      "kind": "impact"
+    },
+    {
+      "t": 16.692,
+      "kind": "whoosh"
+    },
+    {
+      "t": 21.801,
+      "kind": "riser"
+    },
+    {
+      "t": 26.841,
+      "kind": "whooshOut"
+    },
+    {
+      "t": 27.544,
+      "kind": "impact"
+    },
+    {
+      "t": 29.228,
+      "kind": "send"
+    },
+    {
+      "t": 31.296,
+      "kind": "recv"
+    },
+    {
+      "t": 32.191,
+      "kind": "recv"
+    },
+    {
+      "t": 32.647,
+      "kind": "recv"
+    },
+    {
+      "t": 33.925,
+      "kind": "send"
+    },
+    {
+      "t": 35.836,
+      "kind": "recv"
+    },
+    {
+      "t": 36.606,
+      "kind": "recv"
+    },
+    {
+      "t": 38.032,
+      "kind": "send"
+    },
+    {
+      "t": 39.654,
+      "kind": "recv"
+    },
+    {
+      "t": 41.214,
+      "kind": "send"
+    },
+    {
+      "t": 43.08,
+      "kind": "recv"
+    },
+    {
+      "t": 44.382,
+      "kind": "send"
+    },
+    {
+      "t": 46.195,
+      "kind": "recv"
+    },
+    {
+      "t": 47.014,
+      "kind": "recv"
+    },
+    {
+      "t": 48.502,
+      "kind": "send"
+    },
+    {
+      "t": 50.557,
+      "kind": "recv"
+    },
+    {
+      "t": 52.808,
+      "kind": "send"
+    },
+    {
+      "t": 54.758,
+      "kind": "recv"
+    },
+    {
+      "t": 55.956,
+      "kind": "send"
+    },
+    {
+      "t": 57.723,
+      "kind": "recv"
+    },
+    {
+      "t": 58.516,
+      "kind": "recv"
+    },
+    {
+      "t": 58.525,
+      "kind": "recv"
+    },
+    {
+      "t": 59.805,
+      "kind": "tap"
+    },
+    {
+      "t": 59.956,
+      "kind": "sheet"
+    },
+    {
+      "t": 61.26,
+      "kind": "tap"
+    },
+    {
+      "t": 63.67,
+      "kind": "success"
+    },
+    {
+      "t": 66.528,
+      "kind": "recv"
+    },
+    {
+      "t": 67.415,
+      "kind": "recv"
+    },
+    {
+      "t": 67.436,
+      "kind": "ding"
+    },
+    {
+      "t": 73.334,
+      "kind": "send"
+    },
+    {
+      "t": 75.152,
+      "kind": "recv"
+    },
+    {
+      "t": 75.893,
+      "kind": "recv"
+    },
+    {
+      "t": 77.632,
+      "kind": "send"
+    },
+    {
+      "t": 79.41,
+      "kind": "recv"
+    },
+    {
+      "t": 80.953,
+      "kind": "send"
+    },
+    {
+      "t": 83.015,
+      "kind": "recv"
+    },
+    {
+      "t": 84.644,
+      "kind": "send"
+    },
+    {
+      "t": 86.349,
+      "kind": "recv"
+    },
+    {
+      "t": 87.097,
+      "kind": "recv"
+    },
+    {
+      "t": 87.108,
+      "kind": "ding"
+    },
+    {
+      "t": 90.114,
+      "kind": "swell"
+    },
+    {
+      "t": 90.131,
+      "kind": "ding"
+    },
+    {
+      "t": 94.959,
+      "kind": "whoosh"
+    },
+    {
+      "t": 98.97,
+      "kind": "tap"
+    },
+    {
+      "t": 102.63,
+      "kind": "tap"
+    },
+    {
+      "t": 106.277,
+      "kind": "tap"
+    },
+    {
+      "t": 106.642,
+      "kind": "success"
+    },
+    {
+      "t": 110.347,
+      "kind": "whoosh"
+    },
+    {
+      "t": 116.181,
+      "kind": "whoosh"
+    },
+    {
+      "t": 121.934,
+      "kind": "impact"
+    }
+  ]
+}

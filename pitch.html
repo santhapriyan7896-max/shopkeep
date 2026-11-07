@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shopkeep · launch film</title>
+  <link rel="stylesheet" href="pitch.css" />
+</head>
+<body>
+  <div class="stage" id="stage">
+    <!-- the live product (phones + dashboard) -->
+    <iframe id="phones" src="demo.html" title="Instagram and WhatsApp demo"></iframe>
+    <div class="dash-wrap" id="dashWrap"><iframe id="dash" src="dashboard.html" title="Owner dashboard"></iframe></div>
+
+    <!-- brand bar, like a product site's nav -->
+    <div class="brandbar" id="brandbar"><img src="shopkeep-logo.svg" alt="" /><span>Shopkeep</span></div>
+
+    <!-- captions beside the product -->
+    <div class="side left" id="capLeft"><span class="label"></span><p></p></div>
+    <div class="side right" id="capRight"><span class="label"></span><p></p></div>
+    <div class="side dash" id="dashCap"><span class="label"></span><p></p></div>
+
+    <div class="tap" id="tap"></div>
+
+    <!-- full-frame scenes (story, features, brand) -->
+    <div class="scene" id="scene"></div>
+
+    <div class="start" id="start">
+      <img src="shopkeep-logo.svg" alt="" />
+      <b>Shopkeep · launch film</b>
+      <span>Press F11 for full screen, start your screen recorder, then click anywhere.</span>
+    </div>
+  </div>
+  <script src="catalog.js"></script>
+  <script src="pitch.js"></script>
+</body>
+</html>
