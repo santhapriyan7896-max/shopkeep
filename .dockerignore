@@ -12,3 +12,4 @@ record-video.mjs
 make-audio.mjs
 voice-sample.mjs
 *.log
+.data

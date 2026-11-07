@@ -1,5 +1,7 @@
 # Going live: payments, COD review, address verification, dashboard
 
+> The owner app now does most of this for real. For the step-by-step go-live guide (Supabase, Meta app, Razorpay, App Review) see **SETUP-INSTAGRAM.md**.
+
 The demo already has the full flow. This page covers what to connect when Activewear33 signs up.
 
 ## 1. UPI payments that confirm the order by themselves

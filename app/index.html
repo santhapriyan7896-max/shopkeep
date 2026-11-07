@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shopkeep</title>
+  <link rel="icon" href="/shopkeep-logo.svg" />
+  <link rel="stylesheet" href="/app/app.css" />
+</head>
+<body>
+  <!-- signed out -->
+  <main id="auth" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-brand"><img src="/shopkeep-logo.svg" alt="" />Shopkeep</div>
+      <h1 id="auth-title">Sign in</h1>
+      <form id="auth-form" autocomplete="on">
+        <label data-signup>Your name<input name="name" autocomplete="name" /></label>
+        <label data-signup>Shop name<input name="shop_name" placeholder="e.g. Activewear33" /></label>
+        <label>Email<input name="email" type="email" required autocomplete="email" /></label>
+        <label>Password<input name="password" type="password" required minlength="8" autocomplete="current-password" /></label>
+        <label data-signup data-code hidden>Invite code<input name="signup_code" autocomplete="off" /></label>
+        <p class="form-error" id="auth-error" role="alert"></p>
+        <button class="btn primary wide" id="auth-submit">Sign in</button>
+      </form>
+      <p class="auth-switch"><span id="auth-switch-text">New to Shopkeep?</span> <a href="#" id="auth-switch">Create an account</a></p>
+    </div>
+  </main>
+
+  <!-- signed in -->
+  <div id="shell" class="shell" hidden>
+    <aside class="side">
+      <div class="side-brand"><img src="/shopkeep-logo.svg" alt="" /><div><b id="shop-name">Shop</b><span id="bot-state">Assistant off</span></div></div>
+      <nav class="nav">
+        <a href="#home" data-view="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+        <a href="#inbox" data-view="inbox"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Inbox<em id="badge-inbox" hidden></em></a>
+        <a href="#orders" data-view="orders"><svg viewBox="0 0 24 24"><path d="M5 7h14l-1 13H6zM9 7V5a3 3 0 0 1 6 0v2"/></svg>Orders<em id="badge-orders" hidden></em></a>
+        <a href="#products" data-view="products"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10"/></svg>Products</a>
+        <a href="#leads" data-view="leads"><svg viewBox="0 0 24 24"><path d="M16 11a4 4 0 1 0-8 0M4 20a8 8 0 0 1 16 0"/></svg>Enquiries<em id="badge-leads" hidden></em></a>
+        <a href="#test" data-view="test"><svg viewBox="0 0 24 24"><path d="M8 3h8M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>Test chat</a>
+        <a href="#settings" data-view="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>Settings</a>
+      </nav>
+      <div class="side-foot">
+        <span class="live" id="live" title="Live updates"><i></i>Live</span>
+        <button class="link" id="logout">Sign out</button>
+      </div>
+    </aside>
+    <main class="main" id="view"></main>
+  </div>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="dialog"></dialog>
+
+  <script src="/app/app.js" type="module"></script>
+</body>
+</html>

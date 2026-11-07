@@ -19,3 +19,6 @@ desktop.ini
 .vscode/
 .idea/
 *.log
+
+# local database + secret (npm start without DATABASE_URL)
+.data/

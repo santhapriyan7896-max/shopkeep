@@ -109,7 +109,7 @@ export async function createGemini({ key, model, system, tools, runTool }) {
 
 // Newest "Flash" models first, but only ones that actually answer quickly for this key:
 // probe the candidates in parallel with a tiny request and keep those that reply in time.
-async function rankModels(call) {
+export async function rankModels(call) {
   let ids = [];
   try {
     const { models = [] } = await call("/models?pageSize=1000");

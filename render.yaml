@@ -1,17 +1,31 @@
-# Render blueprint – one free web service running server.mjs (website, demo, dashboard, Live AI).
-# In Render: New → Blueprint → pick this repo. Then add GEMINI_API_KEY under Environment.
+# Render blueprint – one web service running server.mjs: website, demo, the owner app
+# (/app/), Instagram + Razorpay webhooks.
+# New service: New → Blueprint → pick this repo. Existing service: add the variables
+# below under Environment by hand (Render only asks for them when a blueprint is created).
 services:
   - type: web
     name: shopkeep
     runtime: node
-    plan: free
+    plan: free # for real shops use a paid plan: the free one sleeps when idle, so the first DM after a quiet spell is answered about a minute late
     buildCommand: npm ci --omit=dev
     startCommand: node server.mjs
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
         value: "22"
-      - key: GEMINI_API_KEY
-        sync: false # paste your key in the Render dashboard; never in this file
+      - key: APP_SECRET # signs logins, encrypts stored tokens. Never change it once shops are connected.
+        generateValue: true
+      - key: DATABASE_URL # Supabase → Connect → Session pooler connection string
+        sync: false
+      - key: GEMINI_API_KEY # or ANTHROPIC_API_KEY
+        sync: false
+      - key: IG_APP_ID # Meta app → Instagram → API setup with Instagram login
+        sync: false
+      - key: IG_APP_SECRET
+        sync: false
+      - key: IG_VERIFY_TOKEN # any long random text; paste the same in Meta's webhook settings
+        generateValue: true
+      - key: SIGNUP_CODE # invite code needed to create a shop account; leave empty to allow anyone
+        sync: false
       - key: CHAT_LIMIT_PER_MIN
         value: "15"

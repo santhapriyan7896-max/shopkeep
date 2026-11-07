@@ -1,16 +1,21 @@
-// Local server for the Activewear33 demo.
-// - Serves the chat screen at http://localhost:3033
-// - Optional "Live AI" mode: if ANTHROPIC_API_KEY is set (e.g. in .env), the
-//   phone can talk to Claude, which answers from catalog.js and books orders,
-//   team leads and hand-offs through tools.
+// Shopkeep server.
+// - The product: owner app at /app/ with its API, Instagram + Razorpay webhooks
+//   (src/app.mjs). Needs APP_SECRET; stores data in Supabase (DATABASE_URL) or,
+//   locally, in ./.data.
+// - The website, the two-phone demo and its "Live AI" chat (/api/chat), as before.
 //
-// Run:  npm install   (once, only needed for Live AI)
+// Run:  npm install
 //       npm start
 
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import crypto from "node:crypto";
+import { openDb } from "./src/db.mjs";
+import { makeAi } from "./src/ai.mjs";
+import { createApp } from "./src/app.mjs";
 
 import "./catalog.js";
 import "./validate.js";
@@ -49,6 +54,54 @@ if (PROVIDER === "gemini") {
 } else {
   liveProblem = "No AI key found – add GEMINI_API_KEY (or ANTHROPIC_API_KEY) to .env.";
 }
+
+// ── the product (owner app, Instagram, payments) ─────────────
+async function startProduct() {
+  try {
+    let appSecret = process.env.APP_SECRET;
+    const hosted = !!(process.env.RENDER || process.env.NODE_ENV === "production");
+    if (!appSecret) {
+      if (hosted) {
+        console.warn("Owner app: off. Set APP_SECRET (a long random string) to turn it on.");
+        return null;
+      }
+      // Local development: make one and keep it in .data/
+      const file = path.join(here, ".data", "app-secret");
+      appSecret = await fs.readFile(file, "utf8").catch(() => null);
+      if (!appSecret) {
+        appSecret = crypto.randomBytes(32).toString("hex");
+        await fs.mkdir(path.dirname(file), { recursive: true });
+        await fs.writeFile(file, appSecret);
+      }
+    }
+    const url = process.env.DATABASE_URL;
+    if (!url && hosted) console.warn("Owner app: no DATABASE_URL, so data lives on this server's disk and is lost on redeploy. Add your Supabase connection string.");
+    const db = await openDb({ url, dir: url ? null : path.join(here, ".data", "pg") });
+    const ai = await makeAi().catch((err) => {
+      console.warn("Owner app: AI unavailable:", err.message);
+      return null;
+    });
+    const app = createApp({
+      db,
+      ai,
+      config: {
+        appSecret,
+        publicUrl: process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`,
+        igAppId: process.env.IG_APP_ID,
+        igAppSecret: process.env.IG_APP_SECRET,
+        igVerifyToken: process.env.IG_VERIFY_TOKEN,
+        igApiVersion: process.env.IG_API_VERSION || "v24.0",
+        signupCode: process.env.SIGNUP_CODE || "",
+      },
+    });
+    console.log(`Owner app: on (${db.kind === "postgres" ? "Supabase / Postgres" : "local database in .data/"}, AI ${ai ? `${ai.provider} · ${ai.model}` : "off"}, Instagram ${process.env.IG_APP_ID ? "configured" : "not configured"})`);
+    return app;
+  } catch (err) {
+    console.error("Owner app failed to start:", err);
+    return null;
+  }
+}
+const product = await startProduct();
 
 // ── prompt + tools ────────────────────────────────────────────
 const catalogForModel = {
@@ -376,6 +429,12 @@ const server = http.createServer(async (req, res) => {
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
   try {
     if (url.pathname === "/healthz") return sendJson(res, 200, { ok: true });
+    if (url.pathname === "/app") {
+      res.writeHead(301, { Location: "/app/" });
+      return res.end();
+    }
+    if (product && (await product.handle(req, res, url))) return;
+    if (url.pathname.startsWith("/api/v1/")) return sendJson(res, 503, { error: "The owner app isn't switched on for this server (APP_SECRET missing)." });
     const pinRoute = url.pathname.match(/^\/api\/pincode\/(\d{6})$/);
     if (pinRoute) {
       if (rateLimited(req, "pincode")) return sendJson(res, 429, { ok: false, error: "Too many lookups – try again in a minute" });
@@ -405,10 +464,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // static files from this folder only (no dotfiles, server code or node_modules)
-    const rel = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
+    const rel = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname.endsWith("/") ? url.pathname + "index.html" : url.pathname);
     const file = path.normalize(path.join(here, rel));
     const ext = path.extname(file).toLowerCase();
-    if (!file.startsWith(here + path.sep) || rel.includes("/.") || rel.includes("node_modules") || !TYPES[ext]) {
+    if (!file.startsWith(here + path.sep) || rel.includes("/.") || rel.includes("node_modules") || /^\/(src|sql|tests)\//.test(rel) || !TYPES[ext]) {
       res.writeHead(404);
       return res.end("Not found");
     }
@@ -424,7 +483,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": TYPES[ext], "Cache-Control": "no-store", ...(ext === ".mp4" ? { "Accept-Ranges": "bytes" } : {}) });
     res.end(data);
   } catch (err) {
-    if (err.code === "ENOENT") {
+    if (err.code === "ENOENT" || err.code === "EISDIR") {
       res.writeHead(404);
       return res.end("Not found");
     }
@@ -436,7 +495,15 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on("error", (err) => {
+  if (err.code !== "EADDRINUSE") throw err;
+  console.error(`\nPort ${PORT} is already in use: another Shopkeep server (or another app) is still running.`);
+  console.error("Stop it (close its terminal, or end the old node.exe in Task Manager), or start this one on another port:");
+  console.error(process.platform === "win32" ? `  $env:PORT=${PORT + 1}; npm start\n` : `  PORT=${PORT + 1} npm start\n`);
+  process.exit(1);
+});
+
 server.listen(PORT, () => {
-  console.log(`Activewear33 demo → http://localhost:${PORT}`);
+  console.log(`Shopkeep → http://localhost:${PORT}  (owner app: http://localhost:${PORT}/app/)`);
   console.log(gemini ? `Live AI: ON (Gemini · ${gemini.model})` : client ? `Live AI: ON (Claude · ${MODEL})` : `Live AI: off — ${liveProblem}`);
 });

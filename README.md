@@ -4,12 +4,27 @@
 
 | Page | URL (with `npm start` running) |
 |---|---|
+| **The owner app (the real product)** | http://localhost:3033/app/ |
 | Product website (home page) | http://localhost:3033 |
 | Live demo (two phones) | http://localhost:3033/demo.html |
 | Owner dashboard | http://localhost:3033/dashboard.html |
 | Launch film (plays itself) | http://localhost:3033/pitch.html |
 
 Design language (film + site): charcoal `#161617`, rounded cards `#232426`, medium-weight sentence-case type, one green accent `#2ED47A`, logo `shopkeep-logo.svg`.
+
+## The product: owner app + Instagram
+
+`/app/` is the real tool. A shop signs up, adds its products and policies, connects its Instagram professional account and switches the assistant on. From then on:
+
+- **Every DM is answered** by the AI from the shop's own catalog and policies, in the customer's language. It waits a few seconds so 2–3 messages in a row get one answer.
+- **Orders**: it collects size, name, phone and address, checks them (10-digit mobile, real pincode matching the city, door number, stock), and books the order.
+- **UPI** orders get a Razorpay payment link button in the DM; the signed Razorpay webhook confirms the order and DMs "Payment received ✅". Without Razorpay, the shop's UPI ID is sent and the team marks it paid.
+- **COD** orders wait in **Orders → COD review**; confirming, shipping (with tracking) or cancelling DMs the customer. Cancelling puts the stock back.
+- **Hand-offs**: complaints, refunds and anything it can't answer are flagged in the Inbox ("Needs you"). When someone from the shop replies (in the Inbox or the Instagram app), the assistant stays out of that chat for a while.
+- **Bulk / custom orders** are collected as Enquiries.
+- **Test chat** lets the owner talk to their assistant before going live.
+
+Run it locally with `npm start` and open http://localhost:3033/app/. Without `DATABASE_URL` it keeps its data in `.data/` (a real Postgres running inside Node), so you can try everything without any account. Going live (Supabase, Meta app, Razorpay, App Review): **SETUP-INSTAGRAM.md**.
 
 ## The demo
 
@@ -96,7 +111,15 @@ A wrong price in front of the owner hurts more than a placeholder, so if you're 
 
 | File | What it is |
 |---|---|
-| `catalog.js` | Products, prices, stock, shop info. **Edit this** |
+| `app/` | **The owner app** (Home, Inbox, Orders, Products, Enquiries, Test chat, Settings) |
+| `src/app.mjs` | Owner app API, login, Instagram connect, Instagram + Razorpay webhooks, live updates |
+| `src/inbox.mjs` | Message pipeline: receive DM → AI reply → send, payment links, staff takeover |
+| `src/agent.mjs` | The assistant's prompt (built per shop) and its tools: orders, leads, hand-offs |
+| `src/ai.mjs` | Claude or Gemini |
+| `src/instagram.mjs`, `src/razorpay.mjs` | Instagram API and Razorpay Payment Links |
+| `src/db.mjs`, `src/repo.mjs`, `sql/` | Database (Supabase Postgres, or built-in locally) and all queries |
+| `privacy.html` | Privacy policy (Meta needs one for App Review) |
+| `catalog.js` | Demo only: products, prices, stock, shop info for the two-phone demo |
 | `bot.js` | Offline assistant logic |
 | `scenarios.js` | The ready-made customer conversations |
 | `demo.html`, `style.css`, `app.js` | The demo: two phones (Instagram + WhatsApp) |
@@ -110,6 +133,6 @@ A wrong price in front of the owner hurts more than a placeholder, so if you're 
 | `gemini.mjs` | Gemini as the Live AI brain (GEMINI_API_KEY in .env) |
 | `record-video.mjs` | Records the film (picture + cue log) |
 | `make-audio.mjs` | Score, sound effects, robot voice draft, final mix |
-| `tests/` | `npm test` checks the assistant; `npm run transcript` prints every scenario |
+| `tests/` | `npm test`: the demo assistant, plus the real product end to end (accounts, Instagram, payments) with fake AI / Instagram / Razorpay |
 
-This is a demo. It does not connect to Instagram or send any messages. The real build connects through Meta's official Instagram Messaging API after the shop links its account.
+The two-phone demo (`demo.html`) is scripted and never touches Instagram. The owner app (`/app/`) is the real thing: it connects through Meta's official Instagram API once a shop links its account.
