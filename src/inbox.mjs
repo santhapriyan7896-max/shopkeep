@@ -44,8 +44,8 @@ export function makeInbox({ db, ai, ig, rzp, crypto, bus, log = console, debounc
     if (conv.channel === "instagram") {
       const acct = await repo.getInstagram(db, shop.id);
       if (!acct) throw new Error("Instagram is not connected");
-      const token = crypto.decrypt(acct.access_token_enc);
-      const ids = button ? await ig.sendButton(token, conv.external_id, text, button.title, button.url) : await ig.sendText(token, conv.external_id, text);
+      const a = { token: crypto.decrypt(acct.access_token_enc), igUserId: acct.ig_user_id };
+      const ids = button ? await ig.sendButton(a, conv.external_id, text, button.title, button.url) : await ig.sendText(a, conv.external_id, text);
       if (ids[0]) await repo.setMessageExternalId(db, row.id, ids[0]);
     }
     bus.emit(shop.id, "message");
@@ -82,7 +82,7 @@ export function makeInbox({ db, ai, ig, rzp, crypto, bus, log = console, debounc
   async function fillProfile(shop, conv) {
     const acct = await repo.getInstagram(db, shop.id);
     if (!acct) return;
-    const p = await ig.profile(crypto.decrypt(acct.access_token_enc), conv.external_id);
+    const p = await ig.profile({ token: crypto.decrypt(acct.access_token_enc), igUserId: acct.ig_user_id }, conv.external_id);
     if (p.name || p.username) {
       await repo.setConversation(db, conv.id, { customer_name: p.name || "", username: p.username || "" });
       bus.emit(shop.id, "conversation");

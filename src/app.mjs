@@ -23,7 +23,7 @@ const SESSION_DAYS = 30;
 export function createApp({ db, ai, config, fetchImpl = fetch, log = console, debounceOverrideMs }) {
   const crypto = makeCrypto(config.appSecret);
   const publicUrl = String(config.publicUrl || "").replace(/\/$/, "");
-  const ig = makeInstagram({ appId: config.igAppId, appSecret: config.igAppSecret, redirectUri: `${publicUrl}/auth/instagram/callback`, version: config.igApiVersion, fetchImpl });
+  const ig = makeInstagram({ mode: config.igMode, appId: config.igAppId, appSecret: config.igAppSecret, configId: config.igConfigId, redirectUri: `${publicUrl}/auth/instagram/callback`, version: config.igApiVersion, fetchImpl });
   const rzp = makeRazorpay({ fetchImpl });
   const bus = new EventEmitter();
   bus.setMaxListeners(0);
@@ -167,6 +167,8 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
     try {
       const c = await ig.connect(url.searchParams.get("code"));
       await repo.saveInstagram(db, s.shop.id, { igUserId: c.igUserId, username: c.username, tokenEnc: crypto.encrypt(c.token), expiresAt: c.expiresAt });
+      if (c.otherAccounts.length)
+        await repo.addAlert(db, s.shop.id, { kind: "system", title: `Connected @${c.username}`, body: `You also shared ${c.otherAccounts.join(", ")}. Shopkeep answers one account per shop; make another shop account for the others.` });
       emit(s.shop.id, "settings");
       return back("ig=connected");
     } catch (err) {
@@ -214,7 +216,7 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
     let m;
 
     if (path === "/me" && method === "GET")
-      return send(res, 200, { user, shop: await shopView(shop), ai: ai ? { provider: ai.provider, model: ai.model } : null, instagram_available: ig.configured });
+      return send(res, 200, { user, shop: await shopView(shop), ai: ai ? { provider: ai.provider, model: ai.model } : null, instagram_available: ig.configured, instagram_mode: ig.mode });
 
     if (path === "/shop" && method === "PUT") {
       const b = await jsonBody(req);
@@ -318,7 +320,7 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
 
     // Instagram
     if (path === "/instagram/connect" && method === "POST") {
-      if (!ig.configured) throw fail(503, "Instagram isn't set up on this server yet (IG_APP_ID / IG_APP_SECRET / PUBLIC_URL)");
+      if (!ig.configured) throw fail(503, "Instagram isn't set up on this server yet (META_APP_ID / META_APP_SECRET / META_CONFIG_ID)");
       return send(res, 200, { url: ig.authUrl(crypto.sign({ shop: sid, uid: user.id }, 15 * 60)) });
     }
     if (path === "/instagram/disconnect" && method === "POST") {

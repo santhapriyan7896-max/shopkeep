@@ -84,7 +84,7 @@ before(async () => {
     fetchImpl: fakeFetch,
     debounceOverrideMs: 0,
     log: { error() {}, warn() {}, log() {} },
-    config: { appSecret: "s".repeat(40), publicUrl: "https://shop.test", igAppId: "123", igAppSecret: IG_SECRET, igVerifyToken: "verify-me", jobs: false },
+    config: { appSecret: "s".repeat(40), publicUrl: "https://shop.test", igMode: "instagram", igAppId: "123", igAppSecret: IG_SECRET, igVerifyToken: "verify-me", jobs: false },
   });
   server = http.createServer(async (req, res) => {
     if (!(await app.handle(req, res, new URL(req.url, "http://x")))) {

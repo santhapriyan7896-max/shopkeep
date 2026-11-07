@@ -1,18 +1,30 @@
-// Instagram API with Instagram Login (no Facebook Page needed).
+// Connecting a shop's Instagram professional account, and sending / receiving DMs.
 //
-// Connect flow:  owner clicks "Connect Instagram" → instagram.com/oauth/authorize →
-//   our /auth/instagram/callback gets a code → short-lived token → 60-day token →
-//   /me gives the professional account id that webhooks use → subscribe to "messages".
-// Messages arrive at /webhooks/instagram (signed with the app secret).
-// Replies go out through POST /me/messages. Instagram only allows replies within 24 h
-// of the customer's last message.
+// Two ways Meta lets an app connect, picked by the server's settings:
+//
+//  "unified"   (Instagram API with Unified Login — what new Meta apps get)
+//     Login:   facebook.com/dialog/oauth with config_id. The shop signs in with Facebook
+//              or Instagram and picks its business portfolio + Instagram account.
+//     Token:   code → business system-user token (no expiry by default) that covers the
+//              shared Instagram account(s). Everything goes to graph.facebook.com with the
+//              Instagram account id in the path.
+//     Env:     META_APP_ID, META_APP_SECRET (App settings → Basic), META_CONFIG_ID.
+//
+//  "instagram" (Instagram API with Instagram Login — older apps only)
+//     Login:   instagram.com/oauth/authorize → short token → 60-day token (refreshed).
+//     Calls:   graph.instagram.com.
+//     Env:     IG_APP_ID, IG_APP_SECRET.
+//
+// Either way, DMs arrive at /webhooks/instagram signed with the app secret, and replies
+// are only allowed within 24 h of the customer's last message.
 
-export const IG_SCOPES = ["instagram_business_basic", "instagram_business_manage_messages"];
 const MAX_TEXT = 1000; // Instagram's limit per message
+const IG_LOGIN_SCOPES = ["instagram_business_basic", "instagram_business_manage_messages"];
 
-export function makeInstagram({ appId, appSecret, redirectUri, version = "v24.0", fetchImpl = fetch }) {
-  const graph = `https://graph.instagram.com/${version}`;
-  const configured = !!(appId && appSecret && redirectUri);
+export function makeInstagram({ mode = "unified", appId, appSecret, configId, redirectUri, version = "v27.0", fetchImpl = fetch }) {
+  const unified = mode === "unified";
+  const graph = unified ? `https://graph.facebook.com/${version}` : `https://graph.instagram.com/${version}`;
+  const configured = !!(appId && appSecret && redirectUri && (!unified || configId));
 
   async function call(url, opts = {}) {
     const r = await fetchImpl(url, { ...opts, signal: AbortSignal.timeout(15000) });
@@ -26,62 +38,83 @@ export function makeInstagram({ appId, appSecret, redirectUri, version = "v24.0"
     }
     return j;
   }
+  const q = (o) => new URLSearchParams(o).toString();
 
   function authUrl(state) {
-    const p = new URLSearchParams({
+    if (unified)
+      return `https://www.facebook.com/dialog/oauth?${q({
+        client_id: appId,
+        config_id: configId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        override_default_response_type: "true",
+        state,
+      })}`;
+    return `https://www.instagram.com/oauth/authorize?${q({
       enable_fb_login: "0",
       force_authentication: "1",
       client_id: appId,
       redirect_uri: redirectUri,
       response_type: "code",
-      scope: IG_SCOPES.join(","),
+      scope: IG_LOGIN_SCOPES.join(","),
       state,
-    });
-    return `https://www.instagram.com/oauth/authorize?${p}`;
+    })}`;
   }
 
-  // code → { token, expiresAt, igUserId, username }
+  // code → { token, expiresAt (null = never), igUserId, username, otherAccounts }
   async function connect(code) {
-    const form = new URLSearchParams({
-      client_id: appId,
-      client_secret: appSecret,
-      grant_type: "authorization_code",
-      redirect_uri: redirectUri,
-      code: String(code).replace(/#_$/, ""),
-    });
+    code = String(code).replace(/#_$/, "");
+    if (unified) {
+      const t = await call(`${graph}/oauth/access_token?${q({ client_id: appId, client_secret: appSecret, redirect_uri: redirectUri, code })}`);
+      if (!t.access_token) throw new Error("Instagram: no access token in the response");
+      const { data = [] } = await call(`${graph}/me/assigned_instagram_accounts?${q({ fields: "id,username", access_token: t.access_token })}`);
+      if (!data.length) throw new Error("No Instagram account was shared. Connect again and tick your Instagram account.");
+      const acct = data[0];
+      // Ask Meta to send this account's DMs to our webhook.
+      await call(`${graph}/${acct.id}/subscribed_apps?${q({ subscribed_fields: "messages", access_token: t.access_token })}`, { method: "POST" });
+      return {
+        token: t.access_token,
+        expiresAt: t.expires_in ? new Date(Date.now() + t.expires_in * 1000) : null,
+        igUserId: String(acct.id),
+        username: acct.username || "",
+        otherAccounts: data.slice(1).map((a) => a.username || a.id),
+      };
+    }
+    const form = new URLSearchParams({ client_id: appId, client_secret: appSecret, grant_type: "authorization_code", redirect_uri: redirectUri, code });
     const short = await call("https://api.instagram.com/oauth/access_token", { method: "POST", body: form });
     const shortToken = short.access_token || (short.data && short.data[0] && short.data[0].access_token);
     if (!shortToken) throw new Error("Instagram: no access token in the response");
-    const long = await call(
-      `https://graph.instagram.com/access_token?${new URLSearchParams({ grant_type: "ig_exchange_token", client_secret: appSecret, access_token: shortToken })}`,
-    );
-    const me = await call(`${graph}/me?${new URLSearchParams({ fields: "user_id,username", access_token: long.access_token })}`);
-    // Ask Instagram to send this account's DMs to our webhook.
-    await call(`${graph}/me/subscribed_apps?${new URLSearchParams({ subscribed_fields: "messages", access_token: long.access_token })}`, { method: "POST" });
+    const long = await call(`https://graph.instagram.com/access_token?${q({ grant_type: "ig_exchange_token", client_secret: appSecret, access_token: shortToken })}`);
+    const me = await call(`${graph}/me?${q({ fields: "user_id,username", access_token: long.access_token })}`);
+    await call(`${graph}/me/subscribed_apps?${q({ subscribed_fields: "messages", access_token: long.access_token })}`, { method: "POST" });
     return {
       token: long.access_token,
       expiresAt: new Date(Date.now() + (long.expires_in || 60 * 86400) * 1000),
       igUserId: String(me.user_id || me.id),
       username: me.username || "",
+      otherAccounts: [],
     };
   }
 
-  // Long-lived tokens last 60 days and can be refreshed once they're a day old.
+  // Instagram-login tokens last 60 days and are refreshed. Unified tokens don't expire
+  // unless the configuration says so; if one does, the shop has to connect again.
   async function refresh(token) {
-    const j = await call(`https://graph.instagram.com/refresh_access_token?${new URLSearchParams({ grant_type: "ig_refresh_token", access_token: token })}`);
+    if (unified) throw new Error("This connection has an expiry date. Connect Instagram again in Settings.");
+    const j = await call(`https://graph.instagram.com/refresh_access_token?${q({ grant_type: "ig_refresh_token", access_token: token })}`);
     return { token: j.access_token, expiresAt: new Date(Date.now() + (j.expires_in || 60 * 86400) * 1000) };
   }
 
-  async function profile(token, igsid) {
+  // Customer's name / username. Best effort: Meta may refuse, and that's fine.
+  async function profile({ token }, igsid) {
     try {
-      return await call(`${graph}/${igsid}?${new URLSearchParams({ fields: "name,username", access_token: token })}`);
+      return await call(`${graph}/${igsid}?${q({ fields: "name,username", access_token: token })}`);
     } catch {
       return {};
     }
   }
 
-  async function send(token, recipientId, message) {
-    const j = await call(`${graph}/me/messages`, {
+  async function send({ token, igUserId }, recipientId, message) {
+    const j = await call(`${graph}/${unified ? igUserId : "me"}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ recipient: { id: recipientId }, message }),
@@ -90,24 +123,30 @@ export function makeInstagram({ appId, appSecret, redirectUri, version = "v24.0"
   }
 
   // Returns the message ids, one per chunk sent.
-  async function sendText(token, recipientId, text) {
+  async function sendText(acct, recipientId, text) {
     const ids = [];
-    for (const chunk of splitText(text)) ids.push(await send(token, recipientId, { text: chunk }));
+    for (const chunk of splitText(text)) ids.push(await send(acct, recipientId, { text: chunk }));
     return ids;
   }
 
-  // A message with a tappable link button (e.g. "Pay ₹719").
-  async function sendButton(token, recipientId, text, title, url) {
-    const id = await send(token, recipientId, {
-      attachment: {
-        type: "template",
-        payload: { template_type: "button", text: text.slice(0, 640), buttons: [{ type: "web_url", url, title: title.slice(0, 20) }] },
-      },
-    });
-    return [id];
+  // A message with a tappable link button (e.g. "Pay ₹719"). If Meta refuses the button
+  // format, the link goes out as plain text instead, so the customer can still pay.
+  async function sendButton(acct, recipientId, text, title, url) {
+    try {
+      return [
+        await send(acct, recipientId, {
+          attachment: { type: "template", payload: { template_type: "button", text: text.slice(0, 640), buttons: [{ type: "web_url", url, title: title.slice(0, 20) }] } },
+        }),
+      ];
+    } catch (err) {
+      if (err.status >= 500 || err.name === "TimeoutError") throw err;
+      return sendText(acct, recipientId, `${text}
+
+${title}: ${url}`);
+    }
   }
 
-  return { configured, authUrl, connect, refresh, profile, sendText, sendButton };
+  return { mode, configured, authUrl, connect, refresh, profile, sendText, sendButton };
 }
 
 function splitText(text) {

@@ -19,9 +19,11 @@ services:
         sync: false
       - key: GEMINI_API_KEY # or ANTHROPIC_API_KEY
         sync: false
-      - key: IG_APP_ID # Meta app → Instagram → API setup with Instagram login
+      - key: META_APP_ID # Meta app → App settings → Basic → App ID
         sync: false
-      - key: IG_APP_SECRET
+      - key: META_APP_SECRET # same page → App secret
+        sync: false
+      - key: META_CONFIG_ID # Use cases → Instagram API → API setup with Unified login → your configuration's ID
         sync: false
       - key: IG_VERIFY_TOKEN # any long random text; paste the same in Meta's webhook settings
         generateValue: true

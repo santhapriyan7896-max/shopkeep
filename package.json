@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
-    "test": "node --test tests/bot.test.mjs tests/app.test.mjs",
+    "test": "node --test tests/bot.test.mjs tests/app.test.mjs tests/unified.test.mjs",
     "transcript": "node tests/transcript.mjs",
     "film": "node record-video.mjs && node make-audio.mjs"
   },

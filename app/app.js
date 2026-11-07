@@ -561,8 +561,12 @@ async function settings() {
           ? `<div class="row" style="margin-top:10px"><span class="pill on">Connected</span><b class="grow">@${esc(s.instagram.username)}</b><button class="btn danger sm" id="ig-off">Disconnect</button></div>
              <p class="muted small">Connection renews automatically${s.instagram.expires_at ? ` (current one valid until ${new Date(s.instagram.expires_at).toLocaleDateString("en-IN")})` : ""}.</p>`
           : state.me.instagram_available
-            ? `<p class="muted small">Needs an Instagram professional account (Business or Creator). You'll sign in on Instagram and allow Shopkeep to read and reply to messages.</p><button class="btn primary" id="ig-on">Connect Instagram</button>`
-            : `<p class="muted small">Instagram isn't set up on this server yet. The server owner needs to add IG_APP_ID, IG_APP_SECRET and PUBLIC_URL (see SETUP-INSTAGRAM.md).</p>`}
+            ? `<p class="muted small">Needs an Instagram professional account (Business or Creator). ${state.me.instagram_mode === "unified"
+                ? "You'll sign in with Facebook or Instagram, pick your business and your Instagram account, and allow Shopkeep to manage messages."
+                : "You'll sign in on Instagram and allow Shopkeep to read and reply to messages."}
+               Also turn on <b>Allow access to messages</b> in the Instagram app (Settings → Messages and story replies → Message controls → Connected tools).</p>
+               <button class="btn primary" id="ig-on">Connect Instagram</button>`
+            : `<p class="muted small">Instagram isn't set up on this server yet. The server owner needs to add META_APP_ID, META_APP_SECRET and META_CONFIG_ID (see SETUP-INSTAGRAM.md).</p>`}
       </section>
 
       <form class="card pad" id="shopform">

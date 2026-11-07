@@ -86,20 +86,24 @@ async function startProduct() {
       console.warn("Owner app: AI unavailable:", err.message);
       return null;
     });
+    const unifiedLogin = !process.env.IG_APP_ID || !!process.env.META_CONFIG_ID;
     const app = createApp({
       db,
       ai,
       config: {
         appSecret,
         publicUrl: process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`,
-        igAppId: process.env.IG_APP_ID,
-        igAppSecret: process.env.IG_APP_SECRET,
+        // New Meta apps: Unified login (META_*). Older apps with Instagram login: IG_*.
+        igMode: unifiedLogin ? "unified" : "instagram",
+        igAppId: unifiedLogin ? process.env.META_APP_ID : process.env.IG_APP_ID,
+        igAppSecret: unifiedLogin ? process.env.META_APP_SECRET : process.env.IG_APP_SECRET,
+        igConfigId: process.env.META_CONFIG_ID,
         igVerifyToken: process.env.IG_VERIFY_TOKEN,
-        igApiVersion: process.env.IG_API_VERSION || "v24.0",
+        igApiVersion: process.env.GRAPH_API_VERSION || process.env.IG_API_VERSION || "v27.0",
         signupCode: process.env.SIGNUP_CODE || "",
       },
     });
-    console.log(`Owner app: on (${db.kind === "postgres" ? "Supabase / Postgres" : "local database in .data/"}, AI ${ai ? `${ai.provider} · ${ai.model}` : "off"}, Instagram ${process.env.IG_APP_ID ? "configured" : "not configured"})`);
+    console.log(`Owner app: on (${db.kind === "postgres" ? "Supabase / Postgres" : "local database in .data/"}, AI ${ai ? `${ai.provider} · ${ai.model}` : "off"}, Instagram ${unifiedLogin ? (process.env.META_CONFIG_ID ? "configured (Unified login)" : "not configured") : "configured (Instagram login)"})`);
     return app;
   } catch (err) {
     console.error("Owner app failed to start:", err);
