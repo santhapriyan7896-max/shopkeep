@@ -8,7 +8,8 @@
 //   db.one(sql, params)    → first row or null
 //   db.tx(async (t) => …)  → runs in a transaction; t has query/one
 //
-// JSON columns: pass JSON.stringify(value) and cast with $n::jsonb.
+// JSON columns: pass JSON.stringify(value) and cast with $n::text::jsonb. (The "postgres"
+// driver would turn a plain $n::jsonb string into text a second time and store a string.)
 
 import fs from "node:fs/promises";
 import path from "node:path";

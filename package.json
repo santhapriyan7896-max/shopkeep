@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
-    "test": "node --test tests/bot.test.mjs tests/app.test.mjs tests/unified.test.mjs",
+    "test": "node --test tests/bot.test.mjs tests/app.test.mjs tests/unified.test.mjs tests/postgres-driver.test.mjs",
     "transcript": "node tests/transcript.mjs",
     "film": "node record-video.mjs && node make-audio.mjs"
   },
@@ -19,6 +19,7 @@
     "postgres": "^4.1.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite-socket": "^0.2.18",
     "puppeteer-core": "^25.16.0"
   }
 }

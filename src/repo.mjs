@@ -11,7 +11,7 @@ export async function createAccount(db, { email, passwordHash, name, shopName })
   return db.tx(async (t) => {
     const user = await t.one("insert into users (email, password_hash, name) values ($1, $2, $3) returning id, email, name", [String(email).trim().toLowerCase(), passwordHash, name || ""]);
     const prefix = (shopName.replace(/[^a-z0-9]/gi, "").slice(0, 4) || "SK").toUpperCase();
-    const shop = await t.one("insert into shops (name, order_prefix, settings) values ($1, $2, $3::jsonb) returning *", [shopName, prefix, J(defaultSettings())]);
+    const shop = await t.one("insert into shops (name, order_prefix, settings) values ($1, $2, $3::text::jsonb) returning *", [shopName, prefix, J(defaultSettings())]);
     await t.query("insert into shop_members (shop_id, user_id, role) values ($1, $2, 'owner')", [shop.id, user.id]);
     return { user, shop };
   });
@@ -46,7 +46,7 @@ export const getShop = (db, id) => db.one("select * from shops where id = $1", [
 
 export async function updateShop(db, id, { name, settings, botEnabled, orderPrefix }) {
   return db.one(
-    `update shops set name = coalesce($2, name), settings = coalesce($3::jsonb, settings),
+    `update shops set name = coalesce($2, name), settings = coalesce($3::text::jsonb, settings),
        bot_enabled = coalesce($4, bot_enabled), order_prefix = coalesce($5, order_prefix)
      where id = $1 returning *`,
     [id, name ?? null, settings ? J(settings) : null, botEnabled ?? null, orderPrefix ?? null],
@@ -119,14 +119,14 @@ export async function saveProduct(db, shopId, id, input) {
   const vals = [p.name, p.category, p.description, J(p.prices), J(p.sizes), J(p.keywords), J(p.post_urls), p.personalization_price, p.active, p.sort];
   if (id)
     return db.one(
-      `update products set name=$3, category=$4, description=$5, prices=$6::jsonb, sizes=$7::jsonb, keywords=$8::jsonb,
-         post_urls=$9::jsonb, personalization_price=$10, active=$11, sort=$12, updated_at=now()
+      `update products set name=$3, category=$4, description=$5, prices=$6::text::jsonb, sizes=$7::text::jsonb, keywords=$8::text::jsonb,
+         post_urls=$9::text::jsonb, personalization_price=$10, active=$11, sort=$12, updated_at=now()
        where shop_id = $1 and id = $2 returning *`,
       [shopId, id, ...vals],
     );
   return db.one(
     `insert into products (shop_id, name, category, description, prices, sizes, keywords, post_urls, personalization_price, active, sort)
-     values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11) returning *`,
+     values ($1, $2, $3, $4, $5::text::jsonb, $6::text::jsonb, $7::text::jsonb, $8::text::jsonb, $9, $10, $11) returning *`,
     [shopId, ...vals],
   );
 }
@@ -171,7 +171,7 @@ export async function listConversations(db, shopId, { filter = "all", limit = 10
 export async function addMessage(db, { shopId, conversationId, direction, sender, text, attachments = [], externalId = null }) {
   const row = await db.one(
     `insert into messages (shop_id, conversation_id, direction, sender, text, attachments, external_id)
-     values ($1, $2, $3, $4, $5, $6::jsonb, $7) on conflict (external_id) do nothing returning *`,
+     values ($1, $2, $3, $4, $5, $6::text::jsonb, $7) on conflict (external_id) do nothing returning *`,
     [shopId, conversationId, direction, sender, text || "", J(attachments), externalId],
   );
   if (row)
@@ -195,7 +195,7 @@ export async function createOrder(db, shopId, o) {
     const order = await t.one(
       `insert into orders (shop_id, number, conversation_id, product_id, product_name, version, size, quantity, personalization,
          item_total, delivery_fee, cod_fee, total, payment, status, customer_name, phone, address, pincode, checks, history)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb,$21::jsonb) returning *`,
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::text::jsonb,$21::text::jsonb) returning *`,
       [shopId, number, o.conversationId, o.productId, o.productName, o.version, o.size, o.quantity, o.personalization,
         o.itemTotal, o.deliveryFee, o.codFee, o.total, o.payment, o.status, o.customerName, o.phone, o.address, o.pincode,
         J(o.checks || {}), J([{ at: new Date().toISOString(), text: o.historyText || "Order placed on Instagram" }])],
@@ -236,7 +236,7 @@ export const unpaidOrders = (db) => db.query("select * from orders where status 
 
 // ── leads, alerts ─────────────────────────────────────────────
 export const addLead = (db, shopId, conversationId, data) =>
-  db.one("insert into leads (shop_id, conversation_id, data) values ($1, $2, $3::jsonb) returning *", [shopId, conversationId, J(data)]);
+  db.one("insert into leads (shop_id, conversation_id, data) values ($1, $2, $3::text::jsonb) returning *", [shopId, conversationId, J(data)]);
 export const listLeads = (db, shopId) => db.query("select * from leads where shop_id = $1 order by created_at desc limit 200", [shopId]);
 export const setLeadStatus = (db, shopId, id, status) => db.one("update leads set status = $3 where shop_id = $1 and id = $2 returning *", [shopId, id, status]);
 
