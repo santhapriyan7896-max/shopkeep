@@ -23,7 +23,7 @@ const SESSION_DAYS = 30;
 export function createApp({ db, ai, config, fetchImpl = fetch, log = console, debounceOverrideMs }) {
   const crypto = makeCrypto(config.appSecret);
   const publicUrl = String(config.publicUrl || "").replace(/\/$/, "");
-  const ig = makeInstagram({ mode: config.igMode, appId: config.igAppId, appSecret: config.igAppSecret, configId: config.igConfigId, redirectUri: `${publicUrl}/auth/instagram/callback`, version: config.igApiVersion, fetchImpl });
+  const ig = makeInstagram({ mode: config.igMode, appId: config.igAppId, appSecret: config.igAppSecret, configId: config.igConfigId, redirectUri: `${publicUrl}/auth/instagram/callback`, version: config.igApiVersion, fetchImpl, retryDelayMs: config.igRetryDelayMs });
   const rzp = makeRazorpay({ fetchImpl });
   const bus = new EventEmitter();
   bus.setMaxListeners(0);

@@ -21,7 +21,7 @@
 const MAX_TEXT = 1000; // Instagram's limit per message
 const IG_LOGIN_SCOPES = ["instagram_business_basic", "instagram_business_manage_messages"];
 
-export function makeInstagram({ mode = "unified", appId, appSecret, configId, redirectUri, version = "v27.0", fetchImpl = fetch }) {
+export function makeInstagram({ mode = "unified", appId, appSecret, configId, redirectUri, version = "v27.0", fetchImpl = fetch, retryDelayMs = 2500 }) {
   const unified = mode === "unified";
   const graph = unified ? `https://graph.facebook.com/${version}` : `https://graph.instagram.com/${version}`;
   const configured = !!(appId && appSecret && redirectUri && (!unified || configId));
@@ -110,18 +110,40 @@ export function makeInstagram({ mode = "unified", appId, appSecret, configId, re
         notes.push(`${label}: ${err.message}`);
       }
     };
-    await attempt("assigned_instagram_accounts", async () => {
-      const { data = [] } = await call(`${graph}/me/assigned_instagram_accounts?${q({ fields: "id,username", access_token: token })}`);
-      notes.push(`assigned_instagram_accounts: ${data.length}`);
-      for (const a of data) found.set(String(a.id), a.username || "");
+    // Meta's documented call. Asked up to 3 times, in case the account is attached to the
+    // connection a moment after the shop is sent back to us.
+    for (let i = 0; i < 3 && !found.size; i++) {
+      if (i) await new Promise((r) => setTimeout(r, retryDelayMs));
+      await attempt(`assigned_instagram_accounts#${i + 1}`, async () => {
+        const { data = [] } = await call(`${graph}/me/assigned_instagram_accounts?${q({ fields: "id,username", access_token: token })}`);
+        notes.push(`assigned_instagram_accounts#${i + 1}: ${data.length}`);
+        for (const a of data) found.set(String(a.id), a.username || "");
+      });
+    }
+    // Who the token belongs to (for the log, and to look in the business portfolio).
+    let business = null;
+    await attempt("me", async () => {
+      const me = await call(`${graph}/me?${q({ fields: "id,name,client_business_id", access_token: token })}`);
+      business = me.client_business_id || null;
+      notes.push(`token user ${me.id || "?"} (${me.name || "no name"}), business ${business || "none"}`);
     });
     await attempt("debug_token", async () => {
       const d = await call(`${graph}/debug_token?${q({ input_token: token, access_token: `${appId}|${appSecret}` })}`);
-      const scopes = (d.data && d.data.granular_scopes) || [];
+      const info = d.data || {};
+      const scopes = info.granular_scopes || [];
+      notes.push(`token type ${info.type || "?"}, valid ${info.is_valid}, expires ${info.expires_at || "never"}, profile ${info.profile_id || "-"}`);
       notes.push(`granted: ${scopes.map((s) => `${s.scope}(${(s.target_ids || []).length})`).join(", ") || "none"}`);
       const order = ["instagram_basic", "instagram_manage_messages"];
       for (const name of order) for (const s of scopes) if (s.scope === name) for (const id of s.target_ids || []) if (!found.has(String(id))) found.set(String(id), "");
     });
+    // Not in Meta's Unified docs, tried as a last resort: the portfolio's Instagram accounts.
+    for (const edge of ["owned_instagram_accounts", "instagram_accounts"])
+      await attempt(edge, async () => {
+        if (!business) return;
+        const { data = [] } = await call(`${graph}/${business}/${edge}?${q({ fields: "id,username", access_token: token })}`);
+        notes.push(`${edge}: ${data.length}`);
+        for (const a of data) found.set(String(a.id), a.username || "");
+      });
     await attempt("me/accounts", async () => {
       const { data = [] } = await call(`${graph}/me/accounts?${q({ fields: "instagram_business_account{id,username}", access_token: token })}`);
       notes.push(`pages: ${data.length}`);
@@ -135,6 +157,10 @@ export function makeInstagram({ mode = "unified", appId, appSecret, configId, re
           notes.push(`username for ${id}: ${err.message}`);
         }
     if (!found.size) {
+      await call(`${graph}/me/adaccounts?${q({ fields: "id", access_token: token })}`).then(
+        (r) => notes.push(`ad accounts: ${(r.data || []).length}`),
+        (err) => notes.push(`ad accounts: ${err.message}`),
+      );
       const e = new Error("Meta didn't share an Instagram account with Shopkeep. Connect again and make sure your Instagram account is selected.");
       e.details = notes;
       throw e;

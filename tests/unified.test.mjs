@@ -89,7 +89,7 @@ before(async () => {
     fetchImpl: fakeFetch,
     debounceOverrideMs: 0,
     log: { error() {}, warn() {}, log() {} },
-    config: { appSecret: "u".repeat(40), publicUrl: "https://shop.test", igMode: "unified", igAppId: "meta-123", igAppSecret: APP_SECRET_META, igConfigId: "cfg-42", igVerifyToken: "vt", jobs: false },
+    config: { appSecret: "u".repeat(40), publicUrl: "https://shop.test", igMode: "unified", igAppId: "meta-123", igAppSecret: APP_SECRET_META, igConfigId: "cfg-42", igVerifyToken: "vt", igRetryDelayMs: 1, jobs: false },
   });
   server = http.createServer(async (req, res) => {
     if (!(await app.handle(req, res, new URL(req.url, "http://x")))) {
