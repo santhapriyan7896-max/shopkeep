@@ -137,7 +137,10 @@ export function makeInbox({ db, ai, ig, rzp, crypto, bus, log = console, debounc
     if (!shop || !conv) return null;
     const isTest = conv.channel === "test";
     if (!isTest) {
-      if (!shop.bot_enabled) return null;
+      if (!shop.bot_enabled) {
+        log.log(`No reply in ${convId}: the assistant is switched off for this shop`);
+        return null;
+      }
       if (conv.bot_paused_until && new Date(conv.bot_paused_until) > new Date()) return null;
       if (conv.last_customer_message_at && Date.now() - new Date(conv.last_customer_message_at) > WINDOW_MS) return null;
     }

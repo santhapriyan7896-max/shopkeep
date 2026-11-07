@@ -12,7 +12,14 @@ import * as repo from "../src/repo.mjs";
 let pg, server, db;
 before(async () => {
   pg = await PGlite.create();
-  const port = 55000 + Math.floor(Math.random() * 5000);
+  // Ask the OS for a free port (a random guess sometimes clashed when tests run in parallel).
+  const net = await import("node:net");
+  const port = await new Promise((resolve) => {
+    const probe = net.createServer().listen(0, "127.0.0.1", () => {
+      const p = probe.address().port;
+      probe.close(() => resolve(p));
+    });
+  });
   server = new PGLiteSocketServer({ db: pg, port, host: "127.0.0.1" });
   await server.start();
   process.env.DB_POOL = "1"; // the test server takes one connection at a time

@@ -560,7 +560,7 @@ async function settings() {
 
       <section class="card pad"><h2>Instagram</h2>
         ${s.instagram.connected
-          ? `<div class="row" style="margin-top:10px"><span class="pill on">Connected</span><b class="grow">@${esc(s.instagram.username)}</b><button class="btn danger sm" id="ig-off">Disconnect</button></div>
+          ? `<div class="row" style="margin-top:10px"><span class="pill on">Connected</span><b class="grow">@${esc(s.instagram.username)} <span class="muted small mono" style="font-weight:400">${esc(s.instagram.account_id || "")}</span></b><button class="btn danger sm" id="ig-off">Disconnect</button></div>
              <p class="muted small">Connection renews automatically${s.instagram.expires_at ? ` (current one valid until ${new Date(s.instagram.expires_at).toLocaleDateString("en-IN")})` : ""}.</p>`
           : s.instagram.needs_account_id
             ? `<p class="muted small" style="margin-top:8px">Meta connected Shopkeep to your business, but didn't say which Instagram account to use. Enter its ID once:</p>

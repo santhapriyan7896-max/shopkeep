@@ -99,7 +99,7 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
       bot_enabled: shop.bot_enabled,
       settings: { ...repo.defaultSettings(), ...shop.settings },
       instagram: acct
-        ? { connected: true, username: acct.username, expires_at: acct.token_expires_at }
+        ? { connected: true, username: acct.username, account_id: acct.ig_user_id, expires_at: acct.token_expires_at }
         : { connected: false, needs_account_id: !!shop.pending_ig_token_enc },
       payments: pay ? { provider: "razorpay", key_id: pay.key_id, test_mode: pay.key_id.startsWith("rzp_test_") } : null,
       urls: { razorpay_webhook: `${publicUrl}/webhooks/razorpay/${shop.id}` },
@@ -110,6 +110,7 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
   async function instagramWebhook(req, res, url) {
     if (req.method === "GET") {
       const ok = url.searchParams.get("hub.mode") === "subscribe" && config.igVerifyToken && url.searchParams.get("hub.verify_token") === config.igVerifyToken;
+      log.log(`Instagram webhook verification from Meta: ${ok ? "accepted" : "refused (verify token doesn't match IG_VERIFY_TOKEN)"}`);
       res.writeHead(ok ? 200 : 403, { "Content-Type": "text/plain" });
       return res.end(ok ? url.searchParams.get("hub.challenge") || "" : "Forbidden");
     }
@@ -127,14 +128,21 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
     } catch {
       return;
     }
-    for (const ev of parseWebhook(body)) {
+    const events = parseWebhook(body);
+    const ids = [...new Set((body.entry || []).map((e) => String(e.id)))];
+    log.log(`Instagram webhook: ${events.length} message event(s) for account ${ids.join(", ") || "?"} (fields: ${[...new Set((body.entry || []).flatMap((e) => [...(e.messaging ? ["messaging"] : []), ...(e.changes || []).map((c) => c.field)]))].join(", ") || "none"})`);
+    for (const ev of events) {
       handleInstagramEvent(ev).catch((err) => log.error("Instagram event failed:", err));
     }
   }
 
   async function handleInstagramEvent(ev) {
     const acct = await repo.getInstagramByAccount(db, ev.igAccountId);
-    if (!acct) return;
+    if (!acct) {
+      const known = (await db.query("select ig_user_id, username from instagram_accounts")).map((a) => `${a.ig_user_id} (@${a.username})`);
+      log.warn(`Instagram webhook ignored: account ${ev.igAccountId} isn't connected to any shop. Connected: ${known.join(", ") || "none"}`);
+      return;
+    }
     const shop = await repo.getShop(db, acct.shop_id);
     if (!shop) return;
     if (ev.isEcho) return inbox.receiveEcho({ shop, customerId: ev.recipientId, text: ev.text, mid: ev.mid });
@@ -340,6 +348,7 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
         throw fail(err.status || 502, err.message);
       });
       await repo.saveInstagram(db, sid, { igUserId: a.igUserId, username: a.username, tokenEnc: crypto.encrypt(token), expiresAt: null });
+      log.log(`Instagram connected by ID: shop ${sid} → account ${a.igUserId} (@${a.username})`);
       await repo.setPendingInstagram(db, sid, null);
       emit(sid, "settings");
       return send(res, 200, { shop: await shopView(await repo.getShop(db, sid)) });
