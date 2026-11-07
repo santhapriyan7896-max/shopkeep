@@ -351,6 +351,20 @@ setInterval(() => {
   for (const [k, v] of hits) if (!v.some((t) => now - t < 60_000)) hits.delete(k);
 }, 5 * 60_000).unref();
 
+// ── built-in assistant as a safety net ────────────────────────
+// Same catalog, checks and order flow as the offline demo (bot.js). Used while the
+// AI is paused after a quota error or timeout.
+let aiPausedUntil = 0;
+const offlineStates = new Map();
+function offlineTurn(sessionId, text, sharedProductId, ctx = {}) {
+  if (!offlineStates.has(sessionId)) {
+    if (offlineStates.size >= 500) offlineStates.delete(offlineStates.keys().next().value);
+    offlineStates.set(sessionId, globalThis.AW33Bot.newState({ orderSeq: ctx.nextOrderNo || 1042 }));
+  }
+  const r = globalThis.AW33Bot.reply(offlineStates.get(sessionId), { text, sharedProductId });
+  return { messages: r.messages.map((m) => ({ text: m.text })), events: r.events, fallback: true };
+}
+
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -376,8 +390,18 @@ const server = http.createServer(async (req, res) => {
       const sessionId = String(body.sessionId || "default").slice(0, 64);
       const text = String(body.text || "").slice(0, 1000); // a DM, not an essay
       const args = [sessionId, text, body.sharedProductId || null, { nextOrderNo: Number(body.nextOrderNo) || 0 }];
-      const out = gemini ? await chatTurnGemini(...args) : await chatTurn(...args);
-      return sendJson(res, 200, out);
+      // If the AI is out of quota, slow or down, answer with the built-in assistant
+      // instead of showing the customer an error.
+      if (Date.now() < aiPausedUntil) return sendJson(res, 200, offlineTurn(...args));
+      try {
+        const out = gemini ? await chatTurnGemini(...args) : await chatTurn(...args);
+        return sendJson(res, 200, out);
+      } catch (err) {
+        const quota = err.status === 429 || (Anthropic && err instanceof Anthropic.RateLimitError);
+        aiPausedUntil = Date.now() + (quota ? 15 : 2) * 60_000;
+        console.error(`AI failed (${err.message.split("\n")[0].slice(0, 120)}); using the built-in assistant for ${quota ? 15 : 2} min`);
+        return sendJson(res, 200, offlineTurn(...args));
+      }
     }
 
     // static files from this folder only (no dotfiles, server code or node_modules)
