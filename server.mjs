@@ -75,7 +75,12 @@ async function startProduct() {
       }
     }
     const url = process.env.DATABASE_URL;
-    if (!url && hosted) console.warn("Owner app: no DATABASE_URL, so data lives on this server's disk and is lost on redeploy. Add your Supabase connection string.");
+    if (!url && hosted) {
+      // The built-in database needs more memory than small hosting plans have (Render's
+      // free 512 MB runs out), and its data would be wiped on every redeploy anyway.
+      console.warn("Owner app: off. Set DATABASE_URL (your Supabase connection string) to turn it on.");
+      return null;
+    }
     const db = await openDb({ url, dir: url ? null : path.join(here, ".data", "pg") });
     const ai = await makeAi().catch((err) => {
       console.warn("Owner app: AI unavailable:", err.message);
@@ -434,7 +439,7 @@ const server = http.createServer(async (req, res) => {
       return res.end();
     }
     if (product && (await product.handle(req, res, url))) return;
-    if (url.pathname.startsWith("/api/v1/")) return sendJson(res, 503, { error: "The owner app isn't switched on for this server (APP_SECRET missing)." });
+    if (url.pathname.startsWith("/api/v1/")) return sendJson(res, 503, { error: "The owner app is off on this server. It needs APP_SECRET and DATABASE_URL (see the server log)." });
     const pinRoute = url.pathname.match(/^\/api\/pincode\/(\d{6})$/);
     if (pinRoute) {
       if (rateLimited(req, "pincode")) return sendJson(res, 429, { ok: false, error: "Too many lookups – try again in a minute" });
