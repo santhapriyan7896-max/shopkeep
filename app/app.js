@@ -540,6 +540,7 @@ async function settings() {
   if (q.get("ig") === "connected") toast("Instagram connected");
   const igError = q.get("ig") === "error" ? q.get("reason") || "Couldn't connect" : null;
   if (q.get("ig") === "cancelled") toast("Instagram connection cancelled");
+  if (q.get("ig") === "need_id") toast("Almost there: enter your Instagram account ID");
   if (q.get("ig")) history.replaceState(null, "", "#settings");
   const f = (name, label, opts = {}) => {
     const v = st[name] ?? "";
@@ -561,6 +562,18 @@ async function settings() {
         ${s.instagram.connected
           ? `<div class="row" style="margin-top:10px"><span class="pill on">Connected</span><b class="grow">@${esc(s.instagram.username)}</b><button class="btn danger sm" id="ig-off">Disconnect</button></div>
              <p class="muted small">Connection renews automatically${s.instagram.expires_at ? ` (current one valid until ${new Date(s.instagram.expires_at).toLocaleDateString("en-IN")})` : ""}.</p>`
+          : s.instagram.needs_account_id
+            ? `<p class="muted small" style="margin-top:8px">Meta connected Shopkeep to your business, but didn't say which Instagram account to use. Enter its ID once:</p>
+               <ol class="how small">
+                 <li>Open <b>business.facebook.com → Settings → Accounts → Instagram accounts</b>.</li>
+                 <li>Click your account (e.g. coge.in). Copy the long number shown as its <b>ID</b>.</li>
+               </ol>
+               <form id="igidform" class="row" style="margin-top:10px">
+                 <input name="ig_user_id" class="grow mono" inputmode="numeric" placeholder="e.g. 17841400000000000" required>
+                 <button class="btn primary">Use this account</button>
+               </form>
+               <p class="form-error" id="igid-err"></p>
+               <p class="muted small">Or <button type="button" class="link" id="ig-on">connect again</button>.</p>`
           : (igError ? `<p class="banner" style="margin:10px 0;border-radius:9px">Couldn't connect: ${esc(igError)}</p>` : "") + (state.me.instagram_available
             ? `<p class="muted small">Needs an Instagram professional account (Business or Creator). ${state.me.instagram_mode === "unified"
                 ? "You'll sign in with Facebook or Instagram, pick your business and your Instagram account, and allow Shopkeep to manage messages."
@@ -634,6 +647,22 @@ async function settings() {
     render();
   });
   if ($("#ig-on")) $("#ig-on").onclick = guard(async () => (location.href = (await api("/instagram/connect", { method: "POST" })).url));
+  if ($("#igidform"))
+    $("#igidform").onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = $("button", e.target);
+      btn.disabled = true;
+      $("#igid-err").textContent = "";
+      try {
+        await api("/instagram/account", { method: "POST", body: { ig_user_id: new FormData(e.target).get("ig_user_id") } });
+        toast("Instagram connected");
+        render();
+      } catch (err) {
+        $("#igid-err").textContent = err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    };
   if ($("#ig-off")) $("#ig-off").onclick = guard(async () => {
     if (!(await confirmDlg("Disconnect Instagram?", "The assistant stops replying until you connect again."))) return;
     await api("/instagram/disconnect", { method: "POST" });

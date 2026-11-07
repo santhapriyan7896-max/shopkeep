@@ -98,7 +98,9 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
       order_prefix: shop.order_prefix,
       bot_enabled: shop.bot_enabled,
       settings: { ...repo.defaultSettings(), ...shop.settings },
-      instagram: acct ? { connected: true, username: acct.username, expires_at: acct.token_expires_at } : { connected: false },
+      instagram: acct
+        ? { connected: true, username: acct.username, expires_at: acct.token_expires_at }
+        : { connected: false, needs_account_id: !!shop.pending_ig_token_enc },
       payments: pay ? { provider: "razorpay", key_id: pay.key_id, test_mode: pay.key_id.startsWith("rzp_test_") } : null,
       urls: { razorpay_webhook: `${publicUrl}/webhooks/razorpay/${shop.id}` },
     };
@@ -167,12 +169,18 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
     try {
       const c = await ig.connect(url.searchParams.get("code"));
       await repo.saveInstagram(db, s.shop.id, { igUserId: c.igUserId, username: c.username, tokenEnc: crypto.encrypt(c.token), expiresAt: c.expiresAt });
+      await repo.setPendingInstagram(db, s.shop.id, null);
       if (c.otherAccounts.length)
         await repo.addAlert(db, s.shop.id, { kind: "system", title: `Connected @${c.username}`, body: `You also shared ${c.otherAccounts.join(", ")}. Shopkeep answers one account per shop; make another shop account for the others.` });
       emit(s.shop.id, "settings");
       return back("ig=connected");
     } catch (err) {
       log.error("Instagram connect failed:", err.message, err.details ? `| ${err.details.join(" | ")}` : "");
+      if (err.code === "NO_ACCOUNT" && err.token) {
+        await repo.setPendingInstagram(db, s.shop.id, crypto.encrypt(err.token));
+        emit(s.shop.id, "settings");
+        return back("ig=need_id");
+      }
       return back("ig=error&reason=" + encodeURIComponent(err.message.slice(0, 200)));
     }
   }
@@ -323,8 +331,22 @@ export function createApp({ db, ai, config, fetchImpl = fetch, log = console, de
       if (!ig.configured) throw fail(503, "Instagram isn't set up on this server yet (META_APP_ID / META_APP_SECRET / META_CONFIG_ID)");
       return send(res, 200, { url: ig.authUrl(crypto.sign({ shop: sid, uid: user.id }, 15 * 60)) });
     }
+    if (path === "/instagram/account" && method === "POST") {
+      const fresh = await repo.getShop(db, sid);
+      if (!fresh.pending_ig_token_enc) throw fail(409, "Click Connect Instagram first");
+      const b = await jsonBody(req);
+      const token = crypto.decrypt(fresh.pending_ig_token_enc);
+      const a = await ig.attach(token, b.ig_user_id).catch((err) => {
+        throw fail(err.status || 502, err.message);
+      });
+      await repo.saveInstagram(db, sid, { igUserId: a.igUserId, username: a.username, tokenEnc: crypto.encrypt(token), expiresAt: null });
+      await repo.setPendingInstagram(db, sid, null);
+      emit(sid, "settings");
+      return send(res, 200, { shop: await shopView(await repo.getShop(db, sid)) });
+    }
     if (path === "/instagram/disconnect" && method === "POST") {
       await repo.deleteInstagram(db, sid);
+      await repo.setPendingInstagram(db, sid, null);
       await repo.updateShop(db, sid, { botEnabled: false });
       emit(sid, "settings");
       return send(res, 200, { ok: true });

@@ -15,6 +15,7 @@ const CUSTOMER = "5551234";
 const calls = [];
 let rejectButtons = false;
 let assignedEmpty = false; // Meta's documented account lookup returning nothing
+let grantsEmpty = false; // and the token's permissions naming no account either
 
 async function fakeFetch(url, opts = {}) {
   const u = new URL(url);
@@ -26,7 +27,8 @@ async function fakeFetch(url, opts = {}) {
   if (u.pathname === "/v27.0/me/assigned_instagram_accounts")
     return json({ data: assignedEmpty ? [] : [{ id: IG_ID, username: "activewear.33" }, { id: "999", username: "other.shop" }] });
   if (u.pathname === "/v27.0/debug_token")
-    return json({ data: { is_valid: true, granular_scopes: [{ scope: "instagram_manage_messages", target_ids: [IG_ID] }, { scope: "instagram_basic", target_ids: [IG_ID] }, { scope: "ads_read", target_ids: ["act_1"] }] } });
+    return json({ data: { is_valid: true, type: "SYSTEM_USER", granular_scopes: grantsEmpty ? [{ scope: "instagram_basic" }, { scope: "instagram_manage_messages" }] : [{ scope: "instagram_manage_messages", target_ids: [IG_ID] }, { scope: "instagram_basic", target_ids: [IG_ID] }, { scope: "ads_read", target_ids: ["act_1"] }] } });
+  if (u.pathname === "/v27.0/12345") return json({ error: { message: "Unsupported get request. Object with ID '12345' does not exist" } }, 400);
   if (u.pathname === `/v27.0/${IG_ID}`) return json({ id: IG_ID, username: "activewear.33" });
   if (u.pathname === `/v27.0/${IG_ID}/subscribed_apps`) return json({ success: true });
   if (u.pathname === `/v27.0/${IG_ID}/messages`) {
@@ -183,4 +185,41 @@ test("if Meta's account list comes back empty, the token's granted permissions f
   assert.equal(me.instagram.connected, true);
   assert.equal(me.instagram.username, "activewear.33");
   assignedEmpty = false;
+});
+
+test("Meta names no account at all → Shopkeep keeps the connection and asks for the account ID", async () => {
+  await api("POST", "/api/v1/instagram/disconnect", {});
+  assignedEmpty = true;
+  grantsEmpty = true;
+  const state = new URL((await api("POST", "/api/v1/instagram/connect", {})).data.url).searchParams.get("state");
+  const cb = await api("GET", `/auth/instagram/callback?code=CODE3&state=${encodeURIComponent(state)}`);
+  assert.equal(cb.headers.get("location"), "/app/#settings?ig=need_id");
+  let me = (await api("GET", "/api/v1/me")).data.shop;
+  assert.equal(me.instagram.connected, false);
+  assert.equal(me.instagram.needs_account_id, true);
+
+  const bad = await api("POST", "/api/v1/instagram/account", { ig_user_id: "coge.in" });
+  assert.equal(bad.status, 400, "a username isn't an ID");
+  const noAccess = await api("POST", "/api/v1/instagram/account", { ig_user_id: "12345" });
+  assert.equal(noAccess.status, 400);
+  assert.match(noAccess.data.error, /does not exist/, "Meta's reason is shown");
+
+  const n = calls.length;
+  const ok = await api("POST", "/api/v1/instagram/account", { ig_user_id: ` ${IG_ID} ` });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.data.shop.instagram.connected, true);
+  assert.equal(ok.data.shop.instagram.username, "activewear.33");
+  const sub = calls.slice(n).find((c) => c.path === `/v27.0/${IG_ID}/subscribed_apps`);
+  assert.equal(sub.query.access_token, "suat-token", "uses the kept connection");
+  me = (await api("GET", "/api/v1/me")).data.shop;
+  assert.equal(me.instagram.needs_account_id, undefined);
+  assert.equal((await api("POST", "/api/v1/instagram/account", { ig_user_id: IG_ID })).status, 409, "nothing pending any more");
+
+  // and DMs to it are answered (disconnecting switched the assistant off, so switch it on)
+  await api("PUT", "/api/v1/shop", { bot_enabled: true });
+  const before = sends().length;
+  await dm("hello again", "u.9");
+  await until(() => sends().length > before);
+  assignedEmpty = false;
+  grantsEmpty = false;
 });

@@ -72,6 +72,8 @@ export async function saveInstagram(db, shopId, { igUserId, username, tokenEnc, 
 export const updateInstagramToken = (db, shopId, tokenEnc, expiresAt) =>
   db.query("update instagram_accounts set access_token_enc = $2, token_expires_at = $3 where shop_id = $1", [shopId, tokenEnc, expiresAt]);
 export const deleteInstagram = (db, shopId) => db.query("delete from instagram_accounts where shop_id = $1", [shopId]);
+export const setPendingInstagram = (db, shopId, tokenEnc) =>
+  db.query("update shops set pending_ig_token_enc = $2, pending_ig_at = case when $2::text is null then null else now() end where id = $1", [shopId, tokenEnc]);
 export const instagramDueForRefresh = (db) =>
   db.query("select * from instagram_accounts where token_expires_at < now() + interval '15 days' and connected_at < now() - interval '1 day'");
 

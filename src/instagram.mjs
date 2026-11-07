@@ -67,7 +67,15 @@ export function makeInstagram({ mode = "unified", appId, appSecret, configId, re
     if (unified) {
       const t = await call(`${graph}/oauth/access_token?${q({ client_id: appId, client_secret: appSecret, redirect_uri: redirectUri, code })}`);
       if (!t.access_token) throw new Error("Instagram: no access token in the response");
-      const data = await findAccounts(t.access_token);
+      let data;
+      try {
+        data = await findAccounts(t.access_token);
+      } catch (err) {
+        err.code = "NO_ACCOUNT"; // the connection is fine; we just don't know which account
+        err.token = t.access_token;
+        err.expiresAt = t.expires_in ? new Date(Date.now() + t.expires_in * 1000) : null;
+        throw err;
+      }
       const acct = data[0];
       // Ask Meta to send this account's DMs to our webhook.
       await call(`${graph}/${acct.id}/subscribed_apps?${q({ subscribed_fields: "messages", access_token: t.access_token })}`, { method: "POST" });
@@ -168,6 +176,21 @@ export function makeInstagram({ mode = "unified", appId, appSecret, configId, re
     return [...found].map(([id, username]) => ({ id, username }));
   }
 
+  // The shop told us its Instagram account ID by hand (Meta's lookup came back empty).
+  // Check the token can really reach that account, then subscribe it to DMs.
+  async function attach(token, igId) {
+    igId = String(igId).trim();
+    if (!/^\d{5,25}$/.test(igId)) throw Object.assign(new Error("That doesn't look like an Instagram account ID (it's a long number)."), { status: 400 });
+    let acct;
+    try {
+      acct = await call(`${graph}/${igId}?${q({ fields: "id,username", access_token: token })}`);
+    } catch (err) {
+      throw Object.assign(new Error(`Meta won't let Shopkeep use account ${igId}: ${err.message.replace(/^Instagram: /, "")}`), { status: 400 });
+    }
+    await call(`${graph}/${igId}/subscribed_apps?${q({ subscribed_fields: "messages", access_token: token })}`, { method: "POST" });
+    return { igUserId: String(acct.id || igId), username: acct.username || "" };
+  }
+
   // Instagram-login tokens last 60 days and are refreshed. Unified tokens don't expire
   // unless the configuration says so; if one does, the shop has to connect again.
   async function refresh(token) {
@@ -218,7 +241,7 @@ ${title}: ${url}`);
     }
   }
 
-  return { mode, configured, authUrl, connect, refresh, profile, sendText, sendButton };
+  return { mode, configured, authUrl, connect, attach, refresh, profile, sendText, sendButton };
 }
 
 function splitText(text) {
