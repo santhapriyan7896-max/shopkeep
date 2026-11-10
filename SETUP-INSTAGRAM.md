@@ -46,6 +46,22 @@ Now in Shopkeep: **Settings → Connect Instagram** → sign in with Facebook or
 
 Older apps that still show "API setup with Instagram login" can use that instead: set `IG_APP_ID` / `IG_APP_SECRET` (the Instagram app ID and secret) and leave the `META_*` values empty.
 
+### One shop you run yourself: Live without App Review
+
+If Shopkeep serves only one shop, and that shop's Instagram account is managed by someone with a role on the Meta app, the app can go **Live with Standard Access**: no App Review, no business verification. Meta's webhook docs: without review, webhooks are sent "if the person using your app has a role on the app", and the app "must be published, regardless of app review status". Adding a second shop that you don't manage needs the full review below.
+
+1. **Give your Facebook account access to the shop's Instagram.** In the shop's Meta Business Settings (business.facebook.com) → **Users → People → Add** your Facebook account, with full control of their Instagram account. *Or* add the shop owner's Facebook account to the app under **App roles → Roles** (Tester or Developer); they accept at developers.facebook.com.
+2. **App settings → Basic**:
+   - App icon: `assets/shopkeep-app-icon-1024.png`
+   - Privacy policy URL: `https://YOUR-SERVER/privacy.html`
+   - User data deletion → Data deletion instructions URL: `https://YOUR-SERVER/privacy.html#delete`
+   - Category: Business and pages (or Messaging), contact email
+3. **Publish**: top bar **App mode → Live** (newer dashboards: **Publish** in the left menu). If Meta lists anything else as required there, do that; don't request Advanced Access.
+4. In Shopkeep, signed in as the shop: **Settings → Connect Instagram**, signing in to Facebook with the account from step 1. Enter the Instagram account ID if asked.
+5. On the shop's Instagram: **Message controls → Connected tools → Allow access to messages: on**.
+6. **Test with a stranger**: someone with no role on the app DMs the shop. Render logs should show the webhook arriving and the Inbox should show the message. If it doesn't arrive, use the shorter App Review track "Apps For Your Own Business" (APP-REVIEW.md, same permission text).
+7. The free Render plan sleeps when idle, so the first DM after a quiet spell can be slow or missed. For real customers use the Starter plan or a keep-awake ping.
+
 ### Before real customers: App Review
 
 Step-by-step with paste-ready text: **APP-REVIEW.md**.

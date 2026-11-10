@@ -1,6 +1,8 @@
 # Meta App Review for Shopkeep (Instagram)
 
-Until Meta approves the app, only accounts added as **Instagram testers** get replies. This page is everything to fill in, in order. Text in boxes is ready to paste. Replace `YOUR-EMAIL` with the contact email you want public.
+Until Meta approves the app, only accounts added as **Instagram testers** get replies. This page is everything to fill in, in order. Text in boxes is ready to paste.
+
+Serving just one shop that you manage yourself? You can skip this whole page: see "One shop you run yourself" in SETUP-INSTAGRAM.md.
 
 Server: `https://shopkeep-j2d1.onrender.com` (change if you add a custom domain).
 
@@ -22,14 +24,13 @@ If you create a new configuration instead of editing, copy its new ID into Rende
 
 | Field | Value |
 |---|---|
-| App icon | 1024×1024 PNG of the Shopkeep logo (`shopkeep-logo.svg` exported) |
+| App icon | `assets/shopkeep-app-icon-1024.png` (1024×1024) |
 | Privacy policy URL | `https://shopkeep-j2d1.onrender.com/privacy.html` |
-| User data deletion | "Data deletion instructions URL": `https://shopkeep-j2d1.onrender.com/privacy.html` |
+| User data deletion | "Data deletion instructions URL": `https://shopkeep-j2d1.onrender.com/privacy.html#delete` |
 | Terms of service URL (optional) | `https://shopkeep-j2d1.onrender.com/privacy.html` |
 | Category | Business and pages (or Messaging) |
-| Contact email | YOUR-EMAIL |
+| Contact email | santhapriyan7896@gmail.com |
 
-Before this, the privacy page's contact must be a real email (it still says `hello@example.com`). Tell Claude the email to use and it updates the page.
 
 ## 3. Business verification
 
