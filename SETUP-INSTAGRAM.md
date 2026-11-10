@@ -48,6 +48,8 @@ Older apps that still show "API setup with Instagram login" can use that instead
 
 ### Before real customers: App Review
 
+Step-by-step with paste-ready text: **APP-REVIEW.md**.
+
 While the Meta app is in development mode, only accounts with a role on the app (step 4) work. To reply to everyone:
 
 1. **App settings → Basic**: privacy policy URL `https://YOUR-SERVER/privacy.html`, data deletion instructions URL (same page), app icon, category.
