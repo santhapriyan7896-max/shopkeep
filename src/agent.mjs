@@ -195,6 +195,28 @@ export async function runAgent({ ai, db, shop, products, conversation, messages,
     if (check.cityMatch === false) return { error: `Pincode ${check.pincode} is in ${check.area || check.state}, but the address says ${check.city}. Ask which is correct.` };
     if (!check.hasDoor) return { error: "Address has no door / house number. Ask for it." };
 
+    // Same item already booked in this chat and not paid / confirmed yet → don't book it twice
+    // (the customer saying "ok" or "UPI" again must not create a second order).
+    const versionKey = versions.length > 1 ? version : null;
+    const dup = (await repo.ordersForConversation(db, shop.id, conversation.id)).find(
+      (o) =>
+        ["awaiting_payment", "review"].includes(o.status) &&
+        o.product_id === p.id &&
+        (o.size || null) === (size || null) &&
+        (o.version || null) === versionKey &&
+        o.quantity === qty &&
+        Date.now() - new Date(o.created_at) < 12 * 3600 * 1000,
+    );
+    if (dup)
+      return {
+        already_booked: true,
+        order_number: dup.number,
+        total: dup.total,
+        payment: dup.payment,
+        status: dup.status,
+        note: "This exact order is already booked in this chat. Do NOT book it again; remind the customer of this order number and how to pay. Only if they clearly want a second, separate order, ask them to confirm and change quantity or size.",
+      };
+
     const personal = String(i.personalization || "").trim();
     if (personal && p.personalization_price == null) return { error: "This product can't be personalised. Book it without the text, or ask the customer." };
     const unit = p.prices[version] + (personal ? p.personalization_price : 0);
@@ -241,7 +263,14 @@ export async function runAgent({ ai, db, shop, products, conversation, messages,
     };
   }
 
-  const res = await ai.run({ system: buildSystem(shop, products, { paymentLinks }), messages, tools: TOOLS, runTool });
+  // Tell the assistant which orders this chat already has, so it refers to them instead of
+  // booking again (the chat history it sees is text only, without its earlier tool calls).
+  const existing = (await repo.ordersForConversation(db, shop.id, conversation.id)).filter((o) => Date.now() - new Date(o.created_at) < 7 * 86400 * 1000);
+  const orderLines = existing.map(
+    (o) => `- ${o.number}: ${o.product_name}${o.version ? ` (${o.version})` : ""}${o.size ? `, size ${o.size}` : ""} × ${o.quantity}, ₹${o.total}, ${o.payment}, status ${o.status}`,
+  );
+  const ordersNote = existing.length ? "\n\nOrders already booked in this chat (most recent first). Don't book these again:\n" + orderLines.join("\n") : "";
+  const res = await ai.run({ system: buildSystem(shop, products, { paymentLinks }) + ordersNote, messages, tools: TOOLS, runTool });
   return { ...res, events };
 }
 

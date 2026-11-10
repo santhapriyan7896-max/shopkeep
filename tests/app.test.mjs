@@ -54,6 +54,11 @@ const fakeAi = {
       return { texts: [out.error ? "Can you check the phone number? It needs 10 digits." : "booked?"] };
     }
     if (/book upi/.test(last)) {
+      if (/Orders already booked in this chat/.test(system) && !/TEST-\d+: .*cancelled/.test(system) && /ok book upi/.test(last)) {
+        // the real tool must refuse a duplicate even if the model tries
+        const again = await order("UPI");
+        return { texts: [again.already_booked ? `Already booked ${again.order_number}` : `Booked again ${again.order_number}`] };
+      }
       const out = await order("UPI");
       return { texts: [`Booked ✅ Order ${out.order_number}, total ₹${out.total}.`] };
     }
@@ -215,6 +220,19 @@ test("test chat talks to the assistant and books a UPI order (manual UPI ID)", a
   assert.equal((await owner.get("/api/v1/test-chat")).data.messages.length, 0);
 });
 
+test("asking to book the same thing again doesn't create a second order", async () => {
+  await owner.post("/api/v1/test-chat/reset");
+  const before = (await owner.get("/api/v1/orders")).data.orders.length;
+  const first = await owner.post("/api/v1/test-chat", { text: "book upi" });
+  const n1 = first.data.messages.map((m) => m.text).join(" ").match(/TEST-\d+/)[0];
+  const again = await owner.post("/api/v1/test-chat", { text: "ok book upi" });
+  assert.equal((await owner.get("/api/v1/orders")).data.orders.length, before + 1, "still one new order");
+  assert.ok(again.data.messages.some((m) => m.text.includes(`Already booked ${n1}`)), again.data.messages.map((m) => m.text).join(" | "));
+  const o = (await owner.get("/api/v1/orders")).data.orders.find((x) => x.number === n1);
+  await owner.post(`/api/v1/orders/${o.id}/status`, { status: "cancelled", notify: false });
+  await owner.post("/api/v1/test-chat/reset");
+});
+
 test("bad phone number is sent back to the assistant, no order saved", async () => {
   const before = (await owner.get("/api/v1/orders")).data.orders.length;
   const r = await owner.post("/api/v1/test-chat", { text: "bad phone" });
@@ -294,26 +312,27 @@ test("UPI order with Razorpay: pay link button, signed webhook confirms, custome
   await postWebhook(dm("book upi", "mid.4"));
   await until(() => igSends().length >= before + 2);
   const [confirm, pay] = igSends().slice(before);
-  assert.match(confirm.message.text, /TEST-1002/);
+  const num = confirm.message.text.match(/TEST-\d+/)[0];
   assert.equal(pay.message.attachment.payload.buttons[0].url, "https://rzp.io/i/test1");
   assert.equal(pay.message.attachment.payload.buttons[0].title, "Pay ₹969");
   const rzpCall = outbound.find((o) => o.url.includes("razorpay"));
   assert.equal(rzpCall.body.amount, 96900);
-  assert.equal(rzpCall.body.reference_id, "TEST-1002");
+  assert.equal(rzpCall.body.reference_id, num);
 
   const me = (await owner.get("/api/v1/me")).data.shop;
   const hook = new URL(me.urls.razorpay_webhook).pathname;
-  const event = { event: "payment_link.paid", payload: { payment_link: { entity: { id: "plink_1", reference_id: "TEST-1002", amount: 96900, amount_paid: 96900, status: "paid" } }, payment: { entity: { id: "pay_XYZ", amount: 96900 } } } };
+  const event = { event: "payment_link.paid", payload: { payment_link: { entity: { id: "plink_1", reference_id: num, amount: 96900, amount_paid: 96900, status: "paid" } }, payment: { entity: { id: "pay_XYZ", amount: 96900 } } } };
   const raw = JSON.stringify(event);
   const forged = await fetch(base + hook, { method: "POST", headers: { "X-Razorpay-Signature": "bad" }, body: raw });
   assert.equal(forged.status, 400);
   const sig = crypto.createHmac("sha256", "hook-secret").update(raw).digest("hex");
   const ok = await fetch(base + hook, { method: "POST", headers: { "X-Razorpay-Signature": sig }, body: raw });
   assert.equal(ok.status, 200);
-  const order = (await owner.get("/api/v1/orders")).data.orders.find((o) => o.number === "TEST-1002");
+  const order = (await owner.get("/api/v1/orders")).data.orders.find((o) => o.number === num);
   assert.equal(order.status, "paid");
   assert.equal(order.payment_id, "pay_XYZ");
-  assert.match(igSends().at(-1).message.text, /Payment received ✅[\s\S]*TEST-1002/);
+  const paidText = igSends().at(-1).message.text;
+  assert.ok(paidText.startsWith("Payment received ✅") && paidText.includes(num), paidText);
 
   // Razorpay retries the same webhook: nothing happens twice.
   const n = igSends().length;
