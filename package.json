@@ -2,7 +2,7 @@
   "name": "shopkeep",
   "version": "1.0.0",
   "private": true,
-  "description": "Shopkeep – the AI sales assistant for shops that sell in Instagram DMs: replies, orders, UPI payment links, owner app. Made by Team Coge.",
+  "description": "Shopkeep – the AI sales assistant for shops that sell in Instagram DMs: replies, orders, UPI payment links, owner app.",
   "type": "module",
   "engines": {
     "node": ">=22"
