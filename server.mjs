@@ -56,6 +56,7 @@ if (PROVIDER === "gemini") {
 }
 
 // ── the product (owner app, Instagram, payments) ─────────────
+let productDb = null;
 async function startProduct() {
   try {
     let appSecret = process.env.APP_SECRET;
@@ -82,6 +83,7 @@ async function startProduct() {
       return null;
     }
     const db = await openDb({ url, dir: url ? null : path.join(here, ".data", "pg") });
+    productDb = db;
     const ai = await makeAi().catch((err) => {
       console.warn("Owner app: AI unavailable:", err.message);
       return null;
@@ -107,10 +109,27 @@ async function startProduct() {
     return app;
   } catch (err) {
     console.error("Owner app failed to start:", err);
-    return null;
+    return RETRY;
   }
 }
-const product = await startProduct();
+
+// If the database can't be reached at startup (e.g. a free Supabase project that was
+// paused and is being restored), keep trying in the background instead of leaving the
+// owner app and the Instagram webhook off until the next deploy.
+const RETRY = Symbol("retry");
+let product = null;
+async function bootProduct(attempt = 1) {
+  const started = await startProduct();
+  if (started !== RETRY) {
+    product = started;
+    if (attempt > 1 && product) console.log(`Owner app: started after ${attempt} attempts.`);
+    return;
+  }
+  const waitS = Math.min(300, 15 * attempt);
+  console.warn(`Owner app: retrying in ${waitS}s (attempt ${attempt + 1}).`);
+  setTimeout(() => bootProduct(attempt + 1), waitS * 1000);
+}
+await bootProduct();
 
 // ── prompt + tools ────────────────────────────────────────────
 const catalogForModel = {
@@ -437,13 +456,18 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
   try {
-    if (url.pathname === "/healthz") return sendJson(res, 200, { ok: true });
+    if (url.pathname === "/healthz") {
+      // ?db=1 also touches the database: a daily ping keeps a free Supabase project from pausing.
+      if (!url.searchParams.has("db")) return sendJson(res, 200, { ok: true });
+      const db = productDb && (await productDb.query("select 1").then(() => true, () => false));
+      return sendJson(res, db ? 200 : 503, { ok: !!db, app: !!product, db: !!db });
+    }
     if (url.pathname === "/app") {
       res.writeHead(301, { Location: "/app/" });
       return res.end();
     }
     if (product && (await product.handle(req, res, url))) return;
-    if (url.pathname.startsWith("/api/v1/")) return sendJson(res, 503, { error: "The owner app is off on this server. It needs APP_SECRET and DATABASE_URL (see the server log)." });
+    if (url.pathname.startsWith("/api/v1/")) return sendJson(res, 503, { error: "The owner app is off or still starting on this server. It needs APP_SECRET and a reachable DATABASE_URL (see the server log)." });
     const pinRoute = url.pathname.match(/^\/api\/pincode\/(\d{6})$/);
     if (pinRoute) {
       if (rateLimited(req, "pincode")) return sendJson(res, 429, { ok: false, error: "Too many lookups – try again in a minute" });
